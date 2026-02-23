@@ -1,21 +1,11 @@
-#include "SourceManager.h"
-#include "diagnostics/Span.h"
 #include <algorithm>
 #include <cstdint>
 #include <llvm/ADT/StringRef.h>
+#include <rheo/Diagnostics/SourceManager.h>
+#include <rheo/Diagnostics/Span.h>
 #include <vector>
 
 namespace rheo {
-
-std::vector<BytePos> computeLineStarts(llvm::StringRef source) {
-  std::vector<BytePos> lineStarts = {BytePos(0)};
-  for (size_t i = 0; i < source.size(); ++i) {
-    if (source[i] == '\n') {
-      lineStarts.emplace_back(i + 1);
-    }
-  }
-  return lineStarts;
-}
 
 LineColumn SourceFile::getLineCol(BytePos pos) const {
   auto lower_bound = std::ranges::lower_bound(lineStarts, pos);
@@ -27,6 +17,16 @@ LineColumn SourceFile::getLineCol(BytePos pos) const {
   }
   std::uint32_t col = pos.getValue() - lineStarts[line].getValue();
   return {.line = line + 1, .col = col + 1};
+}
+
+std::vector<BytePos> computeLineStarts(llvm::StringRef source) {
+  std::vector<BytePos> lineStarts = {BytePos(0)};
+  for (size_t i = 0; i < source.size(); ++i) {
+    if (source[i] == '\n') {
+      lineStarts.emplace_back(i + 1);
+    }
+  }
+  return lineStarts;
 }
 
 FileId SourceManager::addFile(llvm::StringRef name, llvm::StringRef source) {

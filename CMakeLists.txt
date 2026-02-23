@@ -33,13 +33,15 @@ include(AddMLIR)
 add_library(
     rheo_lib OBJECT
     source/lib.cpp
-    source/diagnostics/SourceManager.cpp
+    # source/Diagnostics/SourceManager.cpp
 )
 
 target_include_directories(
-    rheo_lib ${warning_guard}
-    PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
+  rheo_lib
+  ${warning_guard}
+  PUBLIC
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     ${LLVM_INCLUDE_DIRS}
     ${MLIR_INCLUDE_DIRS}
 )
