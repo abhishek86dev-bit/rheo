@@ -1,5 +1,5 @@
-#ifndef RHEO_SPAN_H
-#define RHEO_SPAN_H
+#ifndef RHEO_SOURCE_LOCATION_H
+#define RHEO_SOURCE_LOCATION_H
 
 #include <algorithm>
 #include <cassert>
@@ -8,13 +8,22 @@
 
 namespace rheo {
 
+class FileId {
+  std::uint32_t fileId;
+
+public:
+  explicit FileId(std::uint32_t fileId) : fileId(fileId) {}
+  [[nodiscard]] std::uint32_t getId() const { return fileId; }
+  std::strong_ordering operator<=>(const FileId &) const = default;
+  bool operator==(const FileId &) const = default;
+};
+
 class BytePos {
   std::uint32_t pos;
 
 public:
   explicit BytePos(std::uint32_t pos) : pos(pos) {}
-  [[nodiscard]] std::uint32_t getValue() const { return pos; };
-
+  [[nodiscard]] std::uint32_t getValue() const { return pos; }
   std::strong_ordering operator<=>(const BytePos &) const = default;
   bool operator==(const BytePos &) const = default;
 };
@@ -37,6 +46,11 @@ public:
   }
 };
 
+struct LineColumn {
+  std::uint32_t line;
+  std::uint32_t col;
+};
+
 } // namespace rheo
 
-#endif // RHEO_SPAN_H
+#endif // RHEO_SOURCE_LOCATION_H

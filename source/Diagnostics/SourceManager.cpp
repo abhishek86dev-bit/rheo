@@ -1,8 +1,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <llvm/ADT/StringRef.h>
+#include <rheo/Diagnostics/Diagnostics.h>
 #include <rheo/Diagnostics/SourceManager.h>
-#include <rheo/Diagnostics/Span.h>
 #include <vector>
 
 namespace rheo {
@@ -36,7 +36,7 @@ FileId SourceManager::addFile(llvm::StringRef name, llvm::StringRef source) {
   return fileId;
 }
 
-[[nodiscard]] const SourceFile *SourceManager::getFile(FileId fileId) const {
+const SourceFile *SourceManager::getFile(FileId fileId) const {
   auto fileIdValue = fileId.getId();
   if (fileIdValue >= files.size()) {
     return nullptr;

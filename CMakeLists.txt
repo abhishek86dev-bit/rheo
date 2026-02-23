@@ -33,7 +33,8 @@ include(AddMLIR)
 add_library(
     rheo_lib OBJECT
     source/lib.cpp
-    # source/Diagnostics/SourceManager.cpp
+    source/Diagnostics/SourceManager.cpp
+    source/Diagnostics/Diagnostics.cpp
 )
 
 target_include_directories(
