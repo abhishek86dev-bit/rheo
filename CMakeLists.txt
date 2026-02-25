@@ -35,6 +35,7 @@ add_library(
     source/lib.cpp
     source/Diagnostics/SourceManager.cpp
     source/Diagnostics/Diagnostics.cpp
+    source/Frontend/Lexer.cpp
 )
 
 target_include_directories(

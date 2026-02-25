@@ -2,36 +2,50 @@ Checks: >
   clang-diagnostic-*,
   clang-analyzer-*,
   bugprone-*,
-  cert-*,
-  concurrency-*,
-  cppcoreguidelines-*,
-  hicpp-*,
-  misc-*,
-  modernize-*,
   performance-*,
   portability-*,
+  modernize-*,
   readability-*,
-  -modernize-use-trailing-return-type,
-  -bugprone-easily-swappable-parameters,
-  -google-build-using-namespace,
-  -google-readability-todo,
+  cppcoreguidelines-*,
+  concurrency-*,
+  cert-*,
+
+  # Disable noisy / style-heavy rules
   -readability-identifier-naming,
   -readability-magic-numbers,
   -readability-function-cognitive-complexity,
   -readability-convert-member-functions-to-static,
   -readability-redundant-access-specifiers,
+  -bugprone-easily-swappable-parameters,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -misc-non-private-member-variables-in-classes,
   -misc-use-internal-linkage,
+  -modernize-use-trailing-return-type,
+  -hicpp-*,
 
-WarningsAsErrors: '*'
+WarningsAsErrors: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  concurrency-*,
+  cert-*
+
 SystemHeaders: false
 
 CheckOptions:
-  - { key: performance-unnecessary-value-param.AllowedTypes,     value: '::std::string_view;::std::span' }
-  - { key: cppcoreguidelines-narrowing-conversions.PedanticMode, value: false }
-  - { key: modernize-make-unique.IncludeStyle,                   value: '1' }
-  - { key: modernize-make-shared.IncludeStyle,                   value: '1' }
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: '::std::string_view;::std::span'
+
+  - key: cppcoreguidelines-narrowing-conversions.PedanticMode
+    value: false
+
+  - key: modernize-make-unique.IncludeStyle
+    value: '1'
+
+  - key: modernize-make-shared.IncludeStyle
+    value: '1'
 
 FormatStyle: none

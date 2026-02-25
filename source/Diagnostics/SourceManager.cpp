@@ -15,7 +15,7 @@ LineColumn SourceFile::getLineCol(BytePos pos) const {
   } else if (lower_bound != lineStarts.begin()) {
     line = (lower_bound - lineStarts.begin()) - 1;
   }
-  std::uint32_t col = pos.getValue() - lineStarts[line].getValue();
+  std::uint32_t col = pos - lineStarts[line];
   return {.line = line + 1, .col = col + 1};
 }
 
@@ -37,11 +37,10 @@ FileId SourceManager::addFile(llvm::StringRef name, llvm::StringRef source) {
 }
 
 const SourceFile *SourceManager::getFile(FileId fileId) const {
-  auto fileIdValue = fileId.getId();
-  if (fileIdValue >= files.size()) {
+  if (fileId >= files.size()) {
     return nullptr;
   }
-  return &files[fileIdValue];
+  return &files[fileId];
 }
 
 } // namespace rheo

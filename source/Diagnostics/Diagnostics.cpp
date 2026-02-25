@@ -18,7 +18,7 @@ inline llvm::StringRef severityAsStr(Severity serverity) {
   llvm_unreachable("Unknown severity");
 }
 
-// this only for debugging
+// this is only used for debugging
 void Diagnostic::print(llvm::raw_ostream &out,
                        const SourceManager &srcMgr) const {
   out << severityAsStr(severity);
@@ -43,7 +43,7 @@ void Diagnostic::print(llvm::raw_ostream &out,
     }
     out << "\n";
     llvm::StringRef src = file->getSource();
-    size_t lineBegin = label.span.getStart().getValue() - (start.col - 1);
+    size_t lineBegin = label.span.getStart() - (start.col - 1);
     size_t lineEnd = src.find('\n', lineBegin);
     llvm::StringRef lineText = src.slice(lineBegin, lineEnd);
     out << "   | " << lineText << "\n";

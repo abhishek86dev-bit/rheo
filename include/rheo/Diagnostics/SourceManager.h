@@ -1,5 +1,5 @@
-#ifndef RHEO_SOURCE_MANAGER
-#define RHEO_SOURCE_MANAGER
+#ifndef RHEO_SOURCE_MANAGER_H
+#define RHEO_SOURCE_MANAGER_H
 
 #include "SourceLocation.h"
 #include "llvm/ADT/StringRef.h"
