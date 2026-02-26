@@ -10,25 +10,25 @@
 namespace rheo {
 
 class SourceFile {
-  std::string name;
-  std::string source;
-  std::vector<BytePos> lineStarts;
+  std::string Name;
+  std::string Source;
+  std::vector<BytePos> LineStarts;
 
 public:
-  SourceFile(llvm::StringRef name, llvm::StringRef source,
-             std::vector<BytePos> lineStarts)
-      : name(name), source(source), lineStarts(std::move(lineStarts)) {}
-  [[nodiscard]] llvm::StringRef getName() const { return name; }
-  [[nodiscard]] llvm::StringRef getSource() const { return source; }
-  [[nodiscard]] LineColumn getLineCol(BytePos pos) const;
+  SourceFile(llvm::StringRef Name, llvm::StringRef Source,
+             std::vector<BytePos> LineStarts)
+      : Name(Name), Source(Source), LineStarts(std::move(LineStarts)) {}
+  [[nodiscard]] llvm::StringRef getName() const { return Name; }
+  [[nodiscard]] llvm::StringRef getSource() const { return Source; }
+  [[nodiscard]] LineColumn getLineCol(BytePos Pos) const;
 };
 
 class SourceManager {
-  std::vector<SourceFile> files;
+  std::vector<SourceFile> Files;
 
 public:
-  FileId addFile(llvm::StringRef name, llvm::StringRef source);
-  [[nodiscard]] const SourceFile *getFile(FileId fileId) const;
+  FileId addFile(llvm::StringRef Name, llvm::StringRef Source);
+  [[nodiscard]] const SourceFile *getFile(FileId FileId) const;
 };
 
 } // namespace rheo

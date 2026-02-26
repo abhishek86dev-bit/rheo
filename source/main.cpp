@@ -6,25 +6,26 @@
 #include <iostream>
 
 int main() {
-  const auto *src = "func main() -> Int { return 10 }";
-  rheo::DiagnosticEngine engine;
-  rheo::SourceManager manager;
-  auto fileId = manager.addFile("main.rheo", src);
-  rheo::Lexer lexer(fileId, src, engine);
+  const auto *Src = "func main() -> Int { return 1399 }";
+  rheo::DiagnosticEngine Engine;
+  rheo::SourceManager Manager;
+  auto FileId = Manager.addFile("main.rheo", Src);
+  rheo::Lexer Lexer(FileId, Src, Engine);
   while (true) {
-    auto tok = lexer.nextToken();
-    std::cout << "Token: " << tok.value << ", Location: " << tok.span.getStart()
-              << ".." << tok.span.getEnd() << "\n";
+    auto Tok = Lexer.nextToken();
+    std::cout << "Token: " << Tok.Value.str()
+              << ", Location: " << Tok.Span.getStart() << ".."
+              << Tok.Span.getEnd() << "\n";
 
-    if (tok.kind == rheo::TokenKind::Eof) {
+    if (Tok.Kind == rheo::TokenKind::Eof) {
       break;
     }
   }
-  if (engine.hasError()) {
-    auto &out = llvm::outs();
-    auto diags = engine.diagnostics();
-    for (const auto &diag : diags) {
-      diag.print(out, manager);
+  if (Engine.hasError()) {
+    auto &Out = llvm::outs();
+    auto Diags = Engine.diagnostics();
+    for (const auto &Diag : Diags) {
+      Diag.print(Out, Manager);
     }
   }
   return 0;

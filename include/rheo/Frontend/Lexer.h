@@ -4,44 +4,45 @@
 #include "Token.h"
 #include "rheo/Diagnostics/DiagnosticEngine.h"
 #include "rheo/Diagnostics/SourceLocation.h"
-#include <cstddef>
+#include "llvm/ADT/StringMap.h"
 #include <llvm/ADT/StringRef.h>
 #include <string>
 
 namespace rheo {
 
 class Lexer {
-  FileId fileId;
-  std::string input;
-  std::size_t pos = 0;
-  DiagnosticEngine *diags;
-
-  std::unordered_map<std::string, TokenKind> keywords = {
-      {"func", TokenKind::Func},
-      {"Int", TokenKind::Int},
-      {"return", TokenKind::Return},
-  };
+  FileId File;
+  std::string Input;
+  std::size_t Pos = 0;
+  DiagnosticEngine *Diags;
 
 public:
-  Lexer(FileId fileId, llvm::StringRef input, DiagnosticEngine &diags)
-      : fileId(fileId), input(input), diags(&diags) {}
+  Lexer(FileId File, llvm::StringRef Input, DiagnosticEngine &Diags)
+      : File(File), Input(Input), Diags(&Diags) {}
 
   [[nodiscard]] char peek() const {
-    if (pos < input.size()) {
-      return input[pos];
+    if (Pos < Input.size()) {
+      return Input[Pos];
     }
     return '\0';
   }
 
   char advance() {
-    if (pos < input.size()) {
-      return input[pos++];
+    if (Pos < Input.size()) {
+      return Input[Pos++];
     }
     return '\0';
   }
 
+  void makeUnexpectedCharDiag(char Chr, Span Span);
+  void makeUnexpectedDoubleDotInFloatDiag(llvm::StringRef FirstPart,
+                                          llvm::StringRef SecondPart,
+                                          Span Span);
+
+  Token lexNum();
+  Token lexKeywordOrIdent();
+
   void skipWhitespace();
-  void makeUnexpectedCharDiag(char chr, Span span);
   Token nextToken();
 };
 

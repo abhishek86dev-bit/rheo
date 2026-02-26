@@ -8,14 +8,14 @@
 namespace rheo {
 
 class DiagnosticEngine {
-  std::vector<Diagnostic> diags;
+  std::vector<Diagnostic> Diags;
 
 public:
-  void emit(const Diagnostic &diag) { diags.emplace_back(diag); };
+  void emit(const Diagnostic &Diag) { Diags.emplace_back(Diag); };
   [[nodiscard]] llvm::ArrayRef<Diagnostic> diagnostics() const {
-    return diags;
+    return Diags;
   };
-  [[nodiscard]] bool hasError() const { return !diags.empty(); };
+  [[nodiscard]] bool hasError() const { return !Diags.empty(); };
 };
 } // namespace rheo
 

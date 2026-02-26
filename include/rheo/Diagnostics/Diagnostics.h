@@ -3,8 +3,6 @@
 
 #include "SourceLocation.h"
 #include "rheo/Diagnostics/SourceManager.h"
-#include <cassert>
-#include <cstdint>
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -18,46 +16,47 @@ namespace rheo {
 enum class Severity : uint8_t { Error, Warning, Note, Help };
 
 struct Label {
-  Span span;
-  FileId fileId;
-  std::optional<std::string> message;
-  bool isPrimary;
+  Span Location;
+  FileId File;
+  std::optional<std::string> Message;
+  bool IsPrimary;
 
-  static Label primary(Span span, FileId fileId,
-                       std::optional<std::string> message = std::nullopt) {
-    return {span, fileId, std::move(message), true};
+  static Label primary(Span Location, FileId File,
+                       std::optional<std::string> Message = std::nullopt) {
+    return {Location, File, std::move(Message), true};
   }
 
-  static Label secondary(Span span, FileId fileId,
-                         std::optional<std::string> message = std::nullopt) {
-    return {span, fileId, std::move(message), false};
+  static Label secondary(Span Location, FileId File,
+                         std::optional<std::string> Message = std::nullopt) {
+    return {Location, File, std::move(Message), false};
   }
 
 private:
-  Label(Span span, FileId fileId, std::optional<std::string> message,
-        bool isPrimary)
-      : span(span), fileId(fileId), message(std::move(message)),
-        isPrimary(isPrimary) {}
+  Label(Span Location, FileId File, std::optional<std::string> Message,
+        bool IsPrimary)
+      : Location(Location), File(File), Message(std::move(Message)),
+        IsPrimary(IsPrimary) {}
 };
 
 struct Diagnostic {
-  std::string message;
-  Severity severity;
-  std::optional<std::string> code;
-  llvm::SmallVector<Label, 4> labels;
-  std::optional<std::string> help;
+  Severity Severity;
+  std::optional<std::string> Code;
+  std::string Message;
+  llvm::SmallVector<Label, 4> Labels;
+  std::optional<std::string> Help;
 
-  explicit Diagnostic(Severity severity) : severity(severity) {}
-  void setMessage(llvm::StringRef message) { this->message = message; }
-  void setCode(llvm::StringRef code) { this->code = code; }
-  void setHelp(llvm::StringRef help) { this->help = help; }
-  void addLabel(Label label) { labels.emplace_back(std::move(label)); }
-  void addLabels(llvm::ArrayRef<Label> newlabels) {
-    labels.append(newlabels.begin(), newlabels.end());
-  };
-  void print(llvm::raw_ostream &out, const SourceManager &srcMgr) const;
+  explicit Diagnostic(rheo::Severity Severity) : Severity(Severity) {}
+
+  void setMessage(llvm::StringRef Msg) { Message = Msg; }
+  void setCode(llvm::StringRef C) { Code = C; }
+  void setHelp(llvm::StringRef H) { Help = H; }
+  void addLabel(Label L) { Labels.emplace_back(std::move(L)); }
+  void addLabels(llvm::ArrayRef<Label> NewLabels) {
+    Labels.append(NewLabels.begin(), NewLabels.end());
+  }
+
+  void print(llvm::raw_ostream &Out, const SourceManager &SrcMgr) const;
 };
-
 } // namespace rheo
 
 #endif // !RHEO_DIAGNOSTICS_H

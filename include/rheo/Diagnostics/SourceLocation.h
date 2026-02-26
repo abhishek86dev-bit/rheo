@@ -11,24 +11,24 @@ using FileId = std::uint32_t;
 using BytePos = std::uint32_t;
 
 class Span {
-  BytePos start;
-  BytePos end;
+  BytePos Start;
+  BytePos End;
 
 public:
-  Span(BytePos start, BytePos end) : start(start), end(end) {
-    assert(start <= end && "Span start must be before end");
+  Span(BytePos Start, BytePos End) : Start(Start), End(End) {
+    assert(Start <= End && "Span start must be before end");
   }
-  [[nodiscard]] const BytePos &getStart() const { return start; }
-  [[nodiscard]] const BytePos &getEnd() const { return end; }
-  [[nodiscard]] std::uint32_t len() const { return end - start; }
-  [[nodiscard]] Span merge(const Span &other) const {
-    return {std::min(start, other.start), std::max(end, other.end)};
+  [[nodiscard]] const BytePos &getStart() const { return Start; }
+  [[nodiscard]] const BytePos &getEnd() const { return End; }
+  [[nodiscard]] std::uint32_t len() const { return End - Start; }
+  [[nodiscard]] Span merge(const Span &Other) const {
+    return {std::min(Start, Other.Start), std::max(End, Other.End)};
   }
 };
 
 struct LineColumn {
-  std::uint32_t line;
-  std::uint32_t col;
+  std::uint32_t Line;
+  std::uint32_t Col;
 };
 
 } // namespace rheo

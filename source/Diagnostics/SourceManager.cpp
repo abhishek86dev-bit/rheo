@@ -1,5 +1,3 @@
-#include <algorithm>
-#include <cstdint>
 #include <llvm/ADT/StringRef.h>
 #include <rheo/Diagnostics/Diagnostics.h>
 #include <rheo/Diagnostics/SourceManager.h>
@@ -7,40 +5,38 @@
 
 namespace rheo {
 
-LineColumn SourceFile::getLineCol(BytePos pos) const {
-  auto lower_bound = std::ranges::lower_bound(lineStarts, pos);
-  std::uint32_t line = 0;
-  if (lower_bound != lineStarts.end() && *lower_bound == pos) {
-    line = lower_bound - lineStarts.begin();
-  } else if (lower_bound != lineStarts.begin()) {
-    line = (lower_bound - lineStarts.begin()) - 1;
+LineColumn SourceFile::getLineCol(BytePos Pos) const {
+  auto LowerBound = std::ranges::lower_bound(LineStarts, Pos);
+  std::uint32_t Line = 0;
+  if (LowerBound != LineStarts.end() && *LowerBound == Pos) {
+    Line = LowerBound - LineStarts.begin();
+  } else if (LowerBound != LineStarts.begin()) {
+    Line = (LowerBound - LineStarts.begin()) - 1;
   }
-  std::uint32_t col = pos - lineStarts[line];
-  return {.line = line + 1, .col = col + 1};
+  std::uint32_t Col = Pos - LineStarts[Line];
+  return {.Line = Line + 1, .Col = Col + 1};
 }
 
-std::vector<BytePos> computeLineStarts(llvm::StringRef source) {
-  std::vector<BytePos> lineStarts = {BytePos(0)};
-  for (size_t i = 0; i < source.size(); ++i) {
-    if (source[i] == '\n') {
-      lineStarts.emplace_back(i + 1);
-    }
-  }
-  return lineStarts;
+static std::vector<BytePos> computeLineStarts(llvm::StringRef Source) {
+  std::vector<BytePos> LineStarts = {BytePos(0)};
+  for (size_t I = 0; I < Source.size(); ++I)
+    if (Source[I] == '\n')
+      LineStarts.emplace_back(I + 1);
+  return LineStarts;
 }
 
-FileId SourceManager::addFile(llvm::StringRef name, llvm::StringRef source) {
-  auto lineStarts = computeLineStarts(source);
-  auto fileId = FileId(files.size());
-  files.emplace_back(name, source, lineStarts);
-  return fileId;
+FileId SourceManager::addFile(llvm::StringRef Name, llvm::StringRef Source) {
+  auto LineStarts = computeLineStarts(Source);
+  auto Id = FileId(Files.size());
+  Files.emplace_back(Name, Source, LineStarts);
+  return Id;
 }
 
-const SourceFile *SourceManager::getFile(FileId fileId) const {
-  if (fileId >= files.size()) {
+const SourceFile *SourceManager::getFile(FileId ID) const {
+  if (ID >= Files.size()) {
     return nullptr;
   }
-  return &files[fileId];
+  return &Files[ID];
 }
 
 } // namespace rheo

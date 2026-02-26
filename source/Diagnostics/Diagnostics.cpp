@@ -4,8 +4,8 @@
 
 namespace rheo {
 
-inline llvm::StringRef severityAsStr(Severity serverity) {
-  switch (serverity) {
+static inline llvm::StringRef severityAsStr(Severity Serverity) {
+  switch (Serverity) {
   case Severity::Error:
     return "error";
   case Severity::Warning:
@@ -18,43 +18,43 @@ inline llvm::StringRef severityAsStr(Severity serverity) {
   llvm_unreachable("Unknown severity");
 }
 
-// this is only used for debugging
-void Diagnostic::print(llvm::raw_ostream &out,
-                       const SourceManager &srcMgr) const {
-  out << severityAsStr(severity);
-  if (code) {
-    out << "[" << *code << "]";
+void Diagnostic::print(llvm::raw_ostream &Out,
+                       const SourceManager &SrcMgr) const {
+  Out << severityAsStr(Severity);
+  if (Code) {
+    Out << "[" << *Code << "]";
   }
-  out << ": " << message << "\n";
-  for (const auto &label : labels) {
-    const SourceFile *file = srcMgr.getFile(label.fileId);
-    if (file == nullptr) {
+  Out << ": " << Message << "\n";
+  for (const auto &Label : Labels) {
+    const SourceFile *File = SrcMgr.getFile(Label.File);
+    if (File == nullptr) {
       continue;
     }
-    LineColumn start = file->getLineCol(label.span.getStart());
-    LineColumn end = file->getLineCol(label.span.getEnd());
-    out << (label.isPrimary ? "  --> " : "  ... ") << file->getName() << ":"
-        << std::to_string(start.line) << ":" << std::to_string(start.col);
-    if (start.line == end.line) {
-      out << "-" << std::to_string(end.col);
+    LineColumn Start = File->getLineCol(Label.Location.getStart());
+    LineColumn End = File->getLineCol(Label.Location.getEnd());
+    Out << (Label.IsPrimary ? "  --> " : "  ... ") << File->getName() << ":"
+        << std::to_string(Start.Line) << ":" << std::to_string(Start.Col);
+    if (Start.Line == End.Line) {
+      Out << "-" << std::to_string(End.Col);
     }
-    if (label.message) {
-      out << ": " << *label.message;
+    if (Label.Message) {
+      Out << ": " << *Label.Message;
     }
-    out << "\n";
-    llvm::StringRef src = file->getSource();
-    size_t lineBegin = label.span.getStart() - (start.col - 1);
-    size_t lineEnd = src.find('\n', lineBegin);
-    llvm::StringRef lineText = src.slice(lineBegin, lineEnd);
-    out << "   | " << lineText << "\n";
-    out << "   | ";
-    size_t squiggleLen = static_cast<size_t>(std::max(1U, label.span.len()));
-    char marker = label.isPrimary ? '^' : '-';
-    out << std::string(static_cast<size_t>(start.col - 1), ' ')
-        << std::string(squiggleLen, marker) << "\n";
+    Out << "\n";
+    llvm::StringRef Src = File->getSource();
+    size_t LineBegin = Label.Location.getStart() - (Start.Col - 1);
+    size_t LineEnd = Src.find('\n', LineBegin);
+    llvm::StringRef LineText = Src.slice(LineBegin, LineEnd);
+    Out << "   | " << LineText << "\n";
+    Out << "   | ";
+    size_t SquiggleLen =
+        static_cast<size_t>(std::max(1U, Label.Location.len()));
+    char Marker = Label.IsPrimary ? '^' : '-';
+    Out << std::string(static_cast<size_t>(Start.Col - 1), ' ')
+        << std::string(SquiggleLen, Marker) << "\n";
   }
-  if (help) {
-    out << "  help: " << *help << "\n";
+  if (Help) {
+    Out << "  help: " << *Help << "\n";
   }
 }
 
