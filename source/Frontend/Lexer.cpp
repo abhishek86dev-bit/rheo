@@ -45,9 +45,11 @@ void Lexer::makeUnexpectedDoubleDotInFloatDiag(llvm::StringRef FirstPart,
   Diag.setMessage("unexpected '.' in floating point literal");
   Diag.setCode("E0002");
   Diag.addLabel(Label::primary(Span, File, "second '.' here"));
-  Diag.setHelp(std::format("floating point literals can only have one decimal "
-                           "point — did you mean '{}' or '{}{}'?",
-                           FirstPart, FirstPart, SecondPart));
+  llvm::StringRef SecondDigits = SecondPart.drop_front(1);
+  Diag.setHelp(std::format(
+      "floating point literals can only have one decimal point — "
+      "did you mean '{}' (drop '{}') or '{}{}' (merge into one)?",
+      FirstPart.str(), SecondPart.str(), FirstPart.str(), SecondDigits.str()));
   Diags->emit(Diag);
 }
 
@@ -94,27 +96,37 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
   switch (Keyword.size()) {
   case 2:
     KW("if", TokenKind::If)
-    KW("in", TokenKind::In)
     break;
   case 3:
     KW("let", TokenKind::Let)
     KW("var", TokenKind::Var)
-    KW("for", TokenKind::For)
     KW("Int", TokenKind::Int)
     break;
   case 4:
     KW("func", TokenKind::Func)
     KW("true", TokenKind::True)
     KW("Bool", TokenKind::Bool)
+    KW("else", TokenKind::Else)
     break;
   case 5:
     KW("false", TokenKind::False)
     KW("while", TokenKind::While)
     KW("Float", TokenKind::Float)
+    KW("Int8", TokenKind::Int8)
+    KW("UInt", TokenKind::UInt)
     break;
   case 6:
-    KW("struct", TokenKind::Struct)
     KW("return", TokenKind::Return)
+    KW("Int32", TokenKind::Int32)
+    KW("Int64", TokenKind::Int64)
+    KW("UInt8", TokenKind::UInt8)
+    KW("break", TokenKind::Break)
+    break;
+  case 7:
+    KW("Float32", TokenKind::Float32)
+    KW("Float64", TokenKind::Float64)
+    KW("UInt32", TokenKind::UInt32)
+    KW("UInt64", TokenKind::UInt64)
     break;
   case 8:
     KW("continue", TokenKind::Continue)

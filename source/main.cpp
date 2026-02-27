@@ -6,7 +6,7 @@
 #include <iostream>
 
 int main() {
-  const auto *Src = "func main() -> Int { return 1399 }";
+  const auto *Src = "func main() -> Int { return 1399.19.4 }";
   rheo::DiagnosticEngine Engine;
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);

@@ -4,7 +4,6 @@
 #include "Token.h"
 #include "rheo/Diagnostics/DiagnosticEngine.h"
 #include "rheo/Diagnostics/SourceLocation.h"
-#include "llvm/ADT/StringMap.h"
 #include <llvm/ADT/StringRef.h>
 #include <string>
 

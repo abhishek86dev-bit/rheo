@@ -2,9 +2,7 @@
 #define RHEO_TOKEN_H
 
 #include "rheo/Diagnostics/SourceLocation.h"
-#include <cstdint>
 #include <llvm/ADT/StringRef.h>
-#include <string>
 
 namespace rheo {
 
@@ -39,7 +37,16 @@ enum class TokenKind : std::uint8_t {
   IntLiteral,
   FloatLiteral,
   Int,
+  Int8,
+  Int32,
+  Int64,
+  UInt,
+  UInt8,
+  UInt32,
+  UInt64,
   Float,
+  Float32,
+  Float64,
   True,
   False,
   Bool,
@@ -49,10 +56,7 @@ enum class TokenKind : std::uint8_t {
   Return,
   If,
   Else,
-  For,
-  In,
   While,
-  Struct,
   Continue,
   Break,
   NewLine,
