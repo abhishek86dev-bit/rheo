@@ -15,10 +15,6 @@ class Lexer {
   std::size_t Pos = 0;
   DiagnosticEngine *Diags;
 
-public:
-  Lexer(FileId File, llvm::StringRef Input, DiagnosticEngine &Diags)
-      : File(File), Input(Input), Diags(&Diags) {}
-
   [[nodiscard]] char peek() const {
     if (Pos < Input.size()) {
       return Input[Pos];
@@ -42,6 +38,11 @@ public:
   Token lexKeywordOrIdent();
 
   void skipWhitespace();
+
+public:
+  Lexer(FileId File, llvm::StringRef Input, DiagnosticEngine &Diags)
+      : File(File), Input(Input), Diags(&Diags) {}
+
   Token nextToken();
 };
 

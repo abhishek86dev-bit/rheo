@@ -115,6 +115,7 @@ using ExprKind = std::variant<IntLiteral, FloatLiteral, BoolLiteral, UnaryExpr,
 struct Expr {
   Span Location;
   ExprKind Kind;
+  Expr(Span Location, ExprKind Kind) : Location(Location), Kind(Kind) {}
 };
 
 struct ExprStmt {
@@ -142,6 +143,7 @@ using StmtKind = std::variant<ExprStmt, ReturnStmt, VarDecl, AssignStmt>;
 struct Stmt {
   Span Location;
   StmtKind Kind;
+  Stmt(Span Location, StmtKind Kind) : Location(Location), Kind(Kind) {}
 };
 
 enum class BuiltinKind : std::uint8_t {
@@ -190,6 +192,10 @@ struct FunctionDecl {
   Type *ReturnType; // nullable = void
   BlockExpr *Body;  // nullable for extern
   Span Location;
+  FunctionDecl(llvm::StringRef Name, llvm::ArrayRef<Param> Params,
+               Type *ReturnType, BlockExpr *Body, Span Location)
+      : Name(Name), Params(Params), ReturnType(ReturnType), Body(Body),
+        Location(Location) {}
 };
 
 struct Module {

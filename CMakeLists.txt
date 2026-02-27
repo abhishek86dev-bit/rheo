@@ -32,7 +32,6 @@ include(AddMLIR)
 # ---- Declare library ----
 add_library(
     rheo_lib OBJECT
-    source/lib.cpp
     source/Diagnostics/SourceManager.cpp
     source/Diagnostics/Diagnostics.cpp
     source/Frontend/Lexer.cpp
