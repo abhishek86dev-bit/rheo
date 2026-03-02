@@ -6,7 +6,7 @@
 #include "rheo/Frontend/Parser.h"
 
 int main() {
-  const auto *Src = "f(+10 20)";
+  const auto *Src = "+(10 20)";
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);
   rheo::DiagnosticEngine Engine;
