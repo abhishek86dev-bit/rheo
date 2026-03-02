@@ -9,10 +9,15 @@ namespace rheo {
 class ASTPrinter {
   llvm::raw_ostream &OS;
   int Indent = 0;
+  const Span *CurrentLoc = nullptr; // set before dispatching into kind printers
 
   void indent() { OS.indent(Indent * 2); }
   void push() { ++Indent; }
   void pop() { --Indent; }
+
+  void printLoc(const Span &S) {
+    OS << " [" << S.getStart() << ":" << S.getEnd() << "]";
+  }
 
   llvm::StringRef unaryOpStr(UnaryOp Op) {
     switch (Op) {
@@ -100,7 +105,9 @@ public:
 
   void print(const FunctionDecl &F) {
     indent();
-    OS << "FunctionDecl(" << F.Name << ")\n";
+    OS << "FunctionDecl(" << F.Name << ")";
+    printLoc(F.Location);
+    OS << "\n";
     push();
     for (auto &P : F.Params) {
       indent();
@@ -136,43 +143,69 @@ public:
   }
 
   void printExpr(const Expr &E) {
+    CurrentLoc = &E.Location;
     std::visit([&](auto &K) { printExprKind(K); }, E.Kind);
+    CurrentLoc = nullptr;
   }
 
   void printExprKind(const IntLiteral &E) {
     indent();
-    OS << "IntLiteral(" << E.Value << ")\n";
+    OS << "IntLiteral(" << E.Value << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
   void printExprKind(const FloatLiteral &E) {
     indent();
-    OS << "FloatLiteral(" << E.Value << ")\n";
+    OS << "FloatLiteral(" << E.Value << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
   void printExprKind(const BoolLiteral &E) {
     indent();
-    OS << "BoolLiteral(" << (E.Value ? "true" : "false") << ")\n";
+    OS << "BoolLiteral(" << (E.Value ? "true" : "false") << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
-  void printExprKind(const UnitLiteral &E) {
+  void printExprKind(const UnitLiteral &) {
     indent();
-    OS << "UnitLiteral\n";
+    OS << "UnitLiteral";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
   void printExprKind(const VarRef &E) {
     indent();
-    OS << "VarRef(" << E.Name << ")\n";
+    OS << "VarRef(" << E.Name << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
   void printExprKind(const ContinueExpr &) {
     indent();
-    OS << "ContinueExpr\n";
+    OS << "ContinueExpr";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
   }
   void printExprKind(const UnaryExpr &E) {
     indent();
-    OS << "UnaryExpr(" << unaryOpStr(E.Op) << ")\n";
+    OS << "UnaryExpr(" << unaryOpStr(E.Op) << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     printExpr(*E.Operand);
     pop();
   }
   void printExprKind(const BinaryExpr &E) {
     indent();
-    OS << "BinaryExpr(" << binaryOpStr(E.Op) << ")\n";
+    OS << "BinaryExpr(" << binaryOpStr(E.Op) << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     printExpr(*E.Lhs);
     printExpr(*E.Rhs);
@@ -180,7 +213,10 @@ public:
   }
   void printExprKind(const CallExpr &E) {
     indent();
-    OS << "CallExpr\n";
+    OS << "CallExpr";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     indent();
     OS << "Callee:\n";
@@ -197,7 +233,10 @@ public:
   void printExprKind(BlockExpr *E) { printBlockExpr(*E); }
   void printExprKind(const IfExpr &E) {
     indent();
-    OS << "IfExpr\n";
+    OS << "IfExpr";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     indent();
     OS << "Condition:\n";
@@ -220,7 +259,10 @@ public:
   }
   void printExprKind(const WhileExpr &E) {
     indent();
-    OS << "WhileExpr\n";
+    OS << "WhileExpr";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     indent();
     OS << "Condition:\n";
@@ -236,7 +278,10 @@ public:
   }
   void printExprKind(const BreakExpr &E) {
     indent();
-    OS << "BreakExpr\n";
+    OS << "BreakExpr";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     if (E.Value) {
       push();
       printExpr(*E.Value);
@@ -261,19 +306,27 @@ public:
   }
 
   void printStmt(const Stmt &S) {
+    CurrentLoc = &S.Location;
     std::visit([&](auto &K) { printStmtKind(K); }, S.Kind);
+    CurrentLoc = nullptr;
   }
 
   void printStmtKind(const ExprStmt &S) {
     indent();
-    OS << "ExprStmt\n";
+    OS << "ExprStmt";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     printExpr(*S.Expr);
     pop();
   }
   void printStmtKind(const ReturnStmt &S) {
     indent();
-    OS << "ReturnStmt\n";
+    OS << "ReturnStmt";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     if (S.Value) {
       push();
       printExpr(*S.Value);
@@ -287,7 +340,10 @@ public:
       OS << ": ";
       printType(*S.Ty);
     }
-    OS << ")\n";
+    OS << ")";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     if (S.Init) {
       push();
       printExpr(*S.Init);
@@ -296,7 +352,10 @@ public:
   }
   void printStmtKind(const AssignStmt &S) {
     indent();
-    OS << "AssignStmt\n";
+    OS << "AssignStmt";
+    if (CurrentLoc)
+      printLoc(*CurrentLoc);
+    OS << "\n";
     push();
     indent();
     OS << "Target:\n";

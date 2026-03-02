@@ -202,9 +202,6 @@ Token Lexer::nextToken() {
   case ',':
     return {.Span = Span(Start, Pos), .Kind = TokenKind::Comma, .Value = ","};
 
-  case ':':
-    return {.Span = Span(Start, Pos), .Kind = TokenKind::Colon, .Value = ":"};
-
   case ';':
     return {
         .Span = Span(Start, Pos), .Kind = TokenKind::Semicolon, .Value = ";"};
@@ -231,6 +228,15 @@ Token Lexer::nextToken() {
 
   case '%':
     return {.Span = Span(Start, Pos), .Kind = TokenKind::Percent, .Value = "%"};
+
+  case ':':
+    if (Pos < Input.size() && peek() == '=') {
+      advance();
+      return {.Span = Span(Start, Pos),
+              .Kind = TokenKind::ColonEqual,
+              .Value = ":="};
+    }
+    return {.Span = Span(Start, Pos), .Kind = TokenKind::Colon, .Value = ":"};
 
   case '=':
     if (Pos < Input.size() && peek() == '=') {

@@ -6,14 +6,16 @@
 #include "rheo/Frontend/Parser.h"
 
 int main() {
-  const auto *Src = "not -f(x + g(-y, h(a * -b))) * (p(q(r)) + -s) / t(u - -v)";
+  const auto *Src = R"(
+    f x = 10
+  )";
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);
   rheo::DiagnosticEngine Engine;
   rheo::Lexer Lexer(FileId, Src, Engine);
   rheo::ASTContext Ctx;
   rheo::Parser Parser(Ctx, Lexer, Engine, FileId);
-  auto *E = Parser.parseExpr();
+  auto *E = Parser.parseStmt();
   rheo::ASTPrinter Printer;
   if (Engine.hasError()) {
     auto &Out = llvm::outs();
@@ -23,6 +25,6 @@ int main() {
     return 1;
   }
   if (E != nullptr)
-    Printer.printExpr(*E);
+    Printer.printStmt(*E);
   return 0;
 }

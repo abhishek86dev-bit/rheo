@@ -4,6 +4,7 @@
 #include <format>
 #include <llvm/ADT/SmallVector.h>
 #include <string>
+#include <variant>
 
 namespace rheo {
 
@@ -33,6 +34,8 @@ static std::string describeToken(const Token &Tok) {
     return "';'";
   case TK::Dot:
     return "'.'";
+  case TK::ColonEqual:
+    return "':='";
 
   // operators
   case TK::Plus:
@@ -184,7 +187,121 @@ Expr *Parser::errorExpectedCommaOrRParenInCall(Span OpenParenSpan) {
   return nullptr;
 }
 
-Expr *Parser::parsePrimary() {
+Stmt *Parser::errorExpectedStmtTerminator(Span StmtSpan) {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setCode("E1004");
+
+  auto Found = describeToken(Tok);
+
+  Diag.setMessage(
+      std::format("expected ';' or newline after statement, found {}", Found));
+
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("unexpected {} — statement must end here", Found)));
+
+  Diag.addLabel(Label::secondary(StmtSpan, File, "statement starts here"));
+
+  Diag.setHelp("terminate statements with:\n"
+               "  • ';'  explicit terminator\n"
+               "  • newline  implicit terminator\n");
+
+  Diags.emit(Diag);
+
+  while (NextToken.Kind != TokenKind::Semicolon &&
+         NextToken.Kind != TokenKind::NewLine &&
+         NextToken.Kind != TokenKind::Eof) {
+    eatNextToken();
+  }
+
+  if (NextToken.Kind == TokenKind::Semicolon ||
+      NextToken.Kind == TokenKind::NewLine) {
+    eatNextToken();
+  }
+
+  return nullptr;
+}
+
+Stmt *Parser::errorExpectedStmt() {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setCode("E1005");
+
+  auto Found = describeToken(Tok);
+
+  Diag.setMessage(std::format("expected a statement, found {}", Found));
+
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("unexpected {} — statement expected here", Found)));
+
+  Diag.setHelp("statements include:\n"
+               "  • variable declarations: let x = 1\n"
+               "  • assignments: x = 1\n"
+               "  • expression statements: f(x)\n"
+               "  • control flow: if, while, for\n");
+
+  Diags.emit(Diag);
+
+  while (NextToken.Kind != TokenKind::NewLine &&
+         NextToken.Kind != TokenKind::Semicolon &&
+         NextToken.Kind != TokenKind::RBrace &&
+         NextToken.Kind != TokenKind::Eof) {
+    eatNextToken();
+  }
+
+  if (NextToken.Kind == TokenKind::Semicolon ||
+      NextToken.Kind == TokenKind::NewLine) {
+    eatNextToken();
+  }
+
+  return nullptr;
+}
+
+Stmt *Parser::errorInvalidAssignmentTarget(Expr *LHS) {
+  Diagnostic Diag(Severity::Error);
+  Diag.setCode("E1006");
+
+  Diag.setMessage("invalid assignment target");
+
+  Diag.addLabel(
+      Label::primary(LHS->Location, File, "cannot assign to this expression"));
+
+  Diag.setHelp("only variables can be assigned to\n"
+               "  • valid:   x = 10\n"
+               "  • invalid: f() = 10\n"
+               "  • invalid: 1 + 2 = 10");
+
+  Diags.emit(Diag);
+  return nullptr;
+}
+
+Stmt *Parser::errorInvalidDeclTarget(Expr *LHS) {
+  Diagnostic Diag(Severity::Error);
+  Diag.setCode("E1007");
+
+  Diag.setMessage("invalid declaration target");
+
+  Diag.addLabel(Label::primary(LHS->Location, File,
+                               "cannot declare this expression as a variable"));
+
+  Diag.setHelp("only identifiers can be declared\n"
+               "  • valid:   x := 10\n"
+               "  • invalid: f() := 10");
+
+  Diags.emit(Diag);
+  return nullptr;
+}
+
+void Parser::skipNewLines() {
+  while (NextToken.Kind == TokenKind::NewLine)
+    eatNextToken();
+}
+
+Expr *Parser::parsePrimaryExpr() {
   switch (NextToken.Kind) {
   case TokenKind::True: {
     auto Tok = NextToken;
@@ -235,7 +352,7 @@ Expr *Parser::parsePrimary() {
   }
 }
 
-static bool startsExpr(TokenKind Tok) {
+static bool startsWithAtom(TokenKind Tok) {
   switch (Tok) {
   case TokenKind::Identifier:
   case TokenKind::IntLiteral:
@@ -243,35 +360,35 @@ static bool startsExpr(TokenKind Tok) {
   case TokenKind::LParen:
   case TokenKind::True:
   case TokenKind::False:
-  case TokenKind::Minus:
-  case TokenKind::Not:
-  case TokenKind::Plus:
     return true;
-
   default:
     return false;
   }
 }
 
-Expr *Parser::parseCall() {
-  Expr *ExprNode = parsePrimary();
+Expr *Parser::parseCallExpr() {
+  Expr *ExprNode = parsePrimaryExpr();
   if (!ExprNode)
     return nullptr;
   while (true) {
     if (NextToken.Kind == TokenKind::LParen) {
       Token LParen = NextToken;
       eatNextToken(); // (
+      skipNewLines();
       llvm::SmallVector<Expr *, 8> Args;
       if (NextToken.Kind == TokenKind::RParen) {
         eatNextToken();
       } else {
         while (true) {
+          skipNewLines();
           Expr *Arg = parseExpr();
           if (!Arg)
             break;
           Args.push_back(Arg);
+          skipNewLines();
           if (NextToken.Kind == TokenKind::Comma) {
             eatNextToken();
+            skipNewLines();
             continue;
           }
           if (NextToken.Kind == TokenKind::RParen) {
@@ -281,6 +398,7 @@ Expr *Parser::parseCall() {
           errorExpectedCommaOrRParenInCall(LParen.Span);
           if (NextToken.Kind == TokenKind::Comma) {
             eatNextToken();
+            skipNewLines();
             continue;
           }
           if (NextToken.Kind == TokenKind::RParen) {
@@ -295,8 +413,9 @@ Expr *Parser::parseCall() {
       }
       continue;
     }
-    if (startsExpr(NextToken.Kind)) {
-      Expr *Arg = parseUnary();
+    if (startsWithAtom(NextToken.Kind)) {
+      skipNewLines();
+      Expr *Arg = parseUnaryExpr();
       if (!Arg)
         break;
       Span S = ExprNode->Location.merge(Arg->Location);
@@ -308,14 +427,14 @@ Expr *Parser::parseCall() {
   return ExprNode;
 }
 
-Expr *Parser::parseUnary() {
+Expr *Parser::parseUnaryExpr() {
   switch (NextToken.Kind) {
   case TokenKind::Plus:
   case TokenKind::Not:
   case TokenKind::Minus: {
     Token OpTok = NextToken;
     eatNextToken();
-    Expr *Operand = parseUnary();
+    Expr *Operand = parseUnaryExpr();
     if (!Operand)
       return nullptr;
     UnaryOp Op;
@@ -329,7 +448,7 @@ Expr *Parser::parseUnary() {
     return Context.create<Expr>(S, UnaryExpr{Op, Operand});
   }
   default:
-    return parseCall();
+    return parseCallExpr();
   }
 }
 
@@ -399,9 +518,10 @@ static int getBinOpPrecedence(BinaryOp Op) {
   return -1;
 }
 
-Expr *Parser::parseBinary(int MinOp) {
-  auto *Left = parseUnary();
+Expr *Parser::parseBinaryExpr(int MinOp) {
+  auto *Left = parseUnaryExpr();
   while (true) {
+    skipNewLines();
     auto Tok = NextToken;
     auto Op = toBinaryOp(Tok.Kind);
     if (!Op.has_value()) {
@@ -411,11 +531,90 @@ Expr *Parser::parseBinary(int MinOp) {
     if (Bp < MinOp)
       break;
     eatNextToken();
-    auto *Right = parseBinary(Bp + 1);
-    Left = Context.create<Expr>(Expr(Tok.Span, BinaryExpr{*Op, Left, Right}));
+    auto *Right = parseBinaryExpr(Bp + 1);
+    if (!Right)
+      return Left;
+    auto S = Tok.Span.merge(Right->Location);
+    Left = Context.create<Expr>(Expr(S, BinaryExpr{*Op, Left, Right}));
   }
   return Left;
 }
 
-Expr *Parser::parseExpr() { return parseBinary(); }
+Expr *Parser::parseExpr() { return parseBinaryExpr(); }
+
+Stmt *Parser::parseReturnStmt() {
+  auto ReturnLoc = NextToken.Span;
+  eatNextToken(); // return
+  if (NextToken.Kind == TokenKind::NewLine ||
+      NextToken.Kind == TokenKind::Semicolon) {
+    eatNextToken();
+    return Context.create<Stmt>(ReturnLoc, ReturnStmt{nullptr});
+  }
+  auto *Expr = parseExpr();
+  if (!Expr)
+    return nullptr;
+  auto Loc = ReturnLoc.merge(Expr->Location);
+  return Context.create<Stmt>(Loc, ReturnStmt{Expr});
+}
+
+Stmt *Parser::parseExprStmt() {
+  auto *Expr = parseExpr();
+  if (!Expr)
+    return nullptr;
+  return Context.create<Stmt>(Expr->Location, ExprStmt{Expr});
+}
+
+Stmt *Parser::parseExprOrAssignStmt() {
+  Expr *LHS = parseExpr();
+  if (!LHS)
+    return nullptr;
+  if (NextToken.Kind == TokenKind::Equal) {
+    eatNextToken();
+    auto *RHS = parseExpr();
+    if (!RHS)
+      return nullptr;
+    if (!std::holds_alternative<VarRef>(LHS->Kind))
+      return errorInvalidAssignmentTarget(LHS);
+    auto Loc = LHS->Location.merge(RHS->Location);
+    return Context.create<Stmt>(Loc, AssignStmt{LHS, RHS});
+  }
+  return Context.create<Stmt>(LHS->Location, ExprStmt{LHS});
+}
+
+Stmt *Parser::parseStmt() {
+  skipNewLines();
+  auto Start = NextToken.Span;
+  Stmt *S = nullptr;
+  switch (NextToken.Kind) {
+  case TokenKind::Return:
+    S = parseReturnStmt();
+    break;
+  case TokenKind::True:
+  case TokenKind::False:
+  case TokenKind::IntLiteral:
+  case TokenKind::FloatLiteral:
+  case TokenKind::Minus:
+  case TokenKind::Plus:
+  case TokenKind::Not:
+  case TokenKind::LParen:
+    S = parseExprStmt();
+    break;
+  case TokenKind::Identifier:
+    S = parseExprOrAssignStmt();
+    break;
+  default:
+    return errorExpectedStmt();
+  }
+  if (!S)
+    return nullptr;
+  if (NextToken.Kind == TokenKind::NewLine ||
+      NextToken.Kind == TokenKind::Semicolon ||
+      NextToken.Kind == TokenKind::Eof) {
+    if (NextToken.Kind != TokenKind::Eof)
+      eatNextToken();
+    return S;
+  }
+  return errorExpectedStmtTerminator(Start);
+}
+
 } // namespace rheo

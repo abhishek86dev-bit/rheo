@@ -24,6 +24,7 @@ enum class TokenKind : std::uint8_t {
   Percent,
   EqualEqual,
   BangEqual,
+  ColonEqual,
   Less,
   LessEqual,
   Greater,

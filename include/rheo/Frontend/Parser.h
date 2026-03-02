@@ -17,21 +17,32 @@ class Parser {
   FileId File;
 
   void eatNextToken() { NextToken = Lex.nextToken(); }
-  Expr *parsePrimary();
-  Expr *parseUnary();
-  Expr *parseCall();
-  Expr *parseBinary(int MinOp = 0);
+  void skipNewLines();
+
+  Expr *parsePrimaryExpr();
+  Expr *parseUnaryExpr();
+  Expr *parseCallExpr();
+  Expr *parseBinaryExpr(int MinOp = 0);
+  Expr *parseExpr();
+
+  Stmt *parseReturnStmt();
+  Stmt *parseExprStmt();
+
+  Stmt *errorExpectedStmtTerminator(Span StmtSpan);
+  Stmt *errorExpectedStmt();
+  Stmt *parseExprOrAssignStmt();
+  Stmt *errorInvalidAssignmentTarget(Expr *LHS);
+  Stmt *errorInvalidDeclTarget(Expr *LHS);
 
   Expr *errorExpectedRParen(Span OpenParenSpan);
   Expr *errorExpectedExpr();
   Expr *errorExpectedCommaOrRParenInCall(Span OpenParenSpan);
 
 public:
-  Expr *parseExpr();
-
   Parser(ASTContext &Context, Lexer &Lex, DiagnosticEngine &Diags, FileId File)
       : Context(Context), Lex(Lex), NextToken(Lex.nextToken()), Diags(Diags),
         File(File) {}
+  Stmt *parseStmt();
 };
 
 }; // namespace rheo
