@@ -245,7 +245,9 @@ static bool startsExpr(TokenKind Tok) {
   case TokenKind::False:
   case TokenKind::Minus:
   case TokenKind::Not:
+  case TokenKind::Plus:
     return true;
+
   default:
     return false;
   }
@@ -331,5 +333,89 @@ Expr *Parser::parseUnary() {
   }
 }
 
-Expr *Parser::parseExpr() { return parseUnary(); }
+static std::optional<BinaryOp> toBinaryOp(TokenKind K) {
+  switch (K) {
+  case TokenKind::Plus:
+    return BinaryOp::Add;
+  case TokenKind::Minus:
+    return BinaryOp::Sub;
+  case TokenKind::Star:
+    return BinaryOp::Mul;
+  case TokenKind::Slash:
+    return BinaryOp::Div;
+  case TokenKind::Percent:
+    return BinaryOp::Mod;
+
+  case TokenKind::EqualEqual:
+    return BinaryOp::Eq;
+  case TokenKind::BangEqual:
+    return BinaryOp::NotEq;
+
+  case TokenKind::Less:
+    return BinaryOp::Lt;
+  case TokenKind::LessEqual:
+    return BinaryOp::Le;
+  case TokenKind::Greater:
+    return BinaryOp::Gt;
+  case TokenKind::GreaterEqual:
+    return BinaryOp::Ge;
+
+  case TokenKind::And:
+    return BinaryOp::And;
+  case TokenKind::Or:
+    return BinaryOp::Or;
+
+  default:
+    return std::nullopt;
+  }
+}
+
+static int getBinOpPrecedence(BinaryOp Op) {
+  switch (Op) {
+  case BinaryOp::Or:
+    return 1;
+  case BinaryOp::And:
+    return 2;
+
+  case BinaryOp::Eq:
+  case BinaryOp::NotEq:
+    return 3;
+
+  case BinaryOp::Lt:
+  case BinaryOp::Le:
+  case BinaryOp::Gt:
+  case BinaryOp::Ge:
+    return 4;
+
+  case BinaryOp::Add:
+  case BinaryOp::Sub:
+    return 5;
+
+  case BinaryOp::Mul:
+  case BinaryOp::Div:
+  case BinaryOp::Mod:
+    return 6;
+  }
+  return -1;
+}
+
+Expr *Parser::parseBinary(int MinOp) {
+  auto *Left = parseUnary();
+  while (true) {
+    auto Tok = NextToken;
+    auto Op = toBinaryOp(Tok.Kind);
+    if (!Op.has_value()) {
+      break;
+    }
+    auto Bp = getBinOpPrecedence(*Op);
+    if (Bp < MinOp)
+      break;
+    eatNextToken();
+    auto *Right = parseBinary(Bp + 1);
+    Left = Context.create<Expr>(Expr(Tok.Span, BinaryExpr{*Op, Left, Right}));
+  }
+  return Left;
+}
+
+Expr *Parser::parseExpr() { return parseBinary(); }
 } // namespace rheo

@@ -20,6 +20,7 @@ class Parser {
   Expr *parsePrimary();
   Expr *parseUnary();
   Expr *parseCall();
+  Expr *parseBinary(int MinOp = 0);
 
   Expr *errorExpectedRParen(Span OpenParenSpan);
   Expr *errorExpectedExpr();

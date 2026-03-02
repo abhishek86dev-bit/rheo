@@ -6,7 +6,7 @@
 #include "rheo/Frontend/Parser.h"
 
 int main() {
-  const auto *Src = "+(10 20)";
+  const auto *Src = "not -f(x + g(-y, h(a * -b))) * (p(q(r)) + -s) / t(u - -v)";
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);
   rheo::DiagnosticEngine Engine;

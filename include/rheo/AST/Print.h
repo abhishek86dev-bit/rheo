@@ -50,9 +50,9 @@ class ASTPrinter {
     case Ge:
       return ">=";
     case And:
-      return "&&";
+      return "and";
     case Or:
-      return "||";
+      return "or";
     }
   }
 
