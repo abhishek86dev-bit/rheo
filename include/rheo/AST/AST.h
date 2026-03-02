@@ -48,7 +48,9 @@ struct BoolLiteral {
   bool Value;
 };
 
-enum UnaryOp : std::uint8_t { Neg, Not };
+struct UnitLiteral {};
+
+enum UnaryOp : std::uint8_t { Neg, Not, Plus };
 
 struct UnaryExpr {
   UnaryOp Op;
@@ -79,7 +81,7 @@ struct BinaryExpr {
 
 struct CallExpr {
   Expr *Callee;
-  llvm::ArrayRef<Expr *> Args;
+  Expr *Arg;
 };
 
 struct VarRef {
@@ -108,9 +110,10 @@ struct BreakExpr {
 
 struct ContinueExpr {};
 
-using ExprKind = std::variant<IntLiteral, FloatLiteral, BoolLiteral, UnaryExpr,
-                              BinaryExpr, CallExpr, VarRef, BlockExpr *, IfExpr,
-                              WhileExpr, BreakExpr, ContinueExpr>;
+using ExprKind =
+    std::variant<IntLiteral, FloatLiteral, BoolLiteral, UnitLiteral, UnaryExpr,
+                 BinaryExpr, CallExpr, VarRef, BlockExpr *, IfExpr, WhileExpr,
+                 BreakExpr, ContinueExpr>;
 
 struct Expr {
   Span Location;

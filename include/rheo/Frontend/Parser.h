@@ -3,6 +3,7 @@
 
 #include "rheo/AST/AST.h"
 #include "rheo/Diagnostics/DiagnosticEngine.h"
+#include "rheo/Diagnostics/SourceLocation.h"
 #include "rheo/Frontend/Lexer.h"
 #include "rheo/Frontend/Token.h"
 
@@ -12,15 +13,24 @@ class Parser {
   ASTContext &Context;
   Lexer &Lex;
   Token NextToken;
-  bool HasError = false;
   DiagnosticEngine &Diags;
+  FileId File;
 
   void eatNextToken() { NextToken = Lex.nextToken(); }
   Expr *parsePrimary();
+  Expr *parseUnary();
+  Expr *parseCall();
+
+  Expr *errorExpectedRParen(Span OpenParenSpan);
+  Expr *errorExpectedExpr();
+  Expr *errorExpectedCommaOrRParenInCall(Span OpenParenSpan);
 
 public:
-  Parser(ASTContext &Context, Lexer &Lex, DiagnosticEngine &Diags)
-      : Context(Context), Lex(Lex), NextToken(Lex.nextToken()), Diags(Diags) {}
+  Expr *parseExpr();
+
+  Parser(ASTContext &Context, Lexer &Lex, DiagnosticEngine &Diags, FileId File)
+      : Context(Context), Lex(Lex), NextToken(Lex.nextToken()), Diags(Diags),
+        File(File) {}
 };
 
 }; // namespace rheo

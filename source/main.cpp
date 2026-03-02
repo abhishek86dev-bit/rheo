@@ -1,32 +1,28 @@
+#include "rheo/AST/AST.h"
+#include "rheo/AST/Print.h"
 #include "rheo/Diagnostics/DiagnosticEngine.h"
 #include "rheo/Diagnostics/SourceManager.h"
 #include "rheo/Frontend/Lexer.h"
-#include "rheo/Frontend/Token.h"
-#include "llvm/Support/raw_ostream.h"
-#include <iostream>
+#include "rheo/Frontend/Parser.h"
 
 int main() {
-  const auto *Src = "func main() -> Int { return 1399.19.4 }";
-  rheo::DiagnosticEngine Engine;
+  const auto *Src = "f(+10 20)";
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);
+  rheo::DiagnosticEngine Engine;
   rheo::Lexer Lexer(FileId, Src, Engine);
-  while (true) {
-    auto Tok = Lexer.nextToken();
-    std::cout << "Token: " << Tok.Value.str()
-              << ", Location: " << Tok.Span.getStart() << ".."
-              << Tok.Span.getEnd() << "\n";
-
-    if (Tok.Kind == rheo::TokenKind::Eof) {
-      break;
-    }
-  }
+  rheo::ASTContext Ctx;
+  rheo::Parser Parser(Ctx, Lexer, Engine, FileId);
+  auto *E = Parser.parseExpr();
+  rheo::ASTPrinter Printer;
   if (Engine.hasError()) {
     auto &Out = llvm::outs();
-    auto Diags = Engine.diagnostics();
-    for (const auto &Diag : Diags) {
+    for (const auto &Diag : Engine.diagnostics()) {
       Diag.print(Out, Manager);
     }
+    return 1;
   }
+  if (E != nullptr)
+    Printer.printExpr(*E);
   return 0;
 }

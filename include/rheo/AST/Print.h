@@ -18,8 +18,10 @@ class ASTPrinter {
     switch (Op) {
     case Neg:
       return "-";
+    case Plus:
+      return "+";
     case Not:
-      return "!";
+      return "not";
     }
   }
 
@@ -149,6 +151,10 @@ public:
     indent();
     OS << "BoolLiteral(" << (E.Value ? "true" : "false") << ")\n";
   }
+  void printExprKind(const UnitLiteral &E) {
+    indent();
+    OS << "UnitLiteral\n";
+  }
   void printExprKind(const VarRef &E) {
     indent();
     OS << "VarRef(" << E.Name << ")\n";
@@ -182,10 +188,9 @@ public:
     printExpr(*E.Callee);
     pop();
     indent();
-    OS << "Args:\n";
+    OS << "Arg:\n";
     push();
-    for (auto *A : E.Args)
-      printExpr(*A);
+    printExpr(*E.Arg);
     pop();
     pop();
   }

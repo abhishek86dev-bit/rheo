@@ -96,18 +96,23 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
   switch (Keyword.size()) {
   case 2:
     KW("if", TokenKind::If)
+    KW("or", TokenKind::Or)
     break;
+
   case 3:
-    KW("let", TokenKind::Let)
-    KW("var", TokenKind::Var)
+    KW("fun", TokenKind::Fun)
     KW("Int", TokenKind::Int)
+    KW("not", TokenKind::Not)
+    KW("and", TokenKind::And)
+    KW("end", TokenKind::End)
     break;
+
   case 4:
-    KW("func", TokenKind::Func)
     KW("true", TokenKind::True)
     KW("Bool", TokenKind::Bool)
     KW("else", TokenKind::Else)
     break;
+
   case 5:
     KW("false", TokenKind::False)
     KW("while", TokenKind::While)
@@ -115,6 +120,7 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
     KW("Int8", TokenKind::Int8)
     KW("UInt", TokenKind::UInt)
     break;
+
   case 6:
     KW("return", TokenKind::Return)
     KW("Int32", TokenKind::Int32)
@@ -122,16 +128,19 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
     KW("UInt8", TokenKind::UInt8)
     KW("break", TokenKind::Break)
     break;
+
   case 7:
     KW("Float32", TokenKind::Float32)
     KW("Float64", TokenKind::Float64)
     KW("UInt32", TokenKind::UInt32)
     KW("UInt64", TokenKind::UInt64)
     break;
+
   case 8:
     KW("continue", TokenKind::Continue)
     break;
   }
+
   return TokenKind::Identifier;
 }
 
@@ -239,7 +248,6 @@ Token Lexer::nextToken() {
               .Kind = TokenKind::BangEqual,
               .Value = "!="};
     }
-    return {.Span = Span(Start, Pos), .Kind = TokenKind::Bang, .Value = "!"};
 
   case '<':
     if (Pos < Input.size() && peek() == '=') {
@@ -258,21 +266,6 @@ Token Lexer::nextToken() {
               .Value = ">="};
     }
     return {.Span = Span(Start, Pos), .Kind = TokenKind::Greater, .Value = ">"};
-
-  case '&':
-    if (Pos < Input.size() && peek() == '&') {
-      advance();
-      return {
-          .Span = Span(Start, Pos), .Kind = TokenKind::AndAnd, .Value = "&&"};
-    }
-    break;
-
-  case '|':
-    if (Pos < Input.size() && peek() == '|') {
-      advance();
-      return {.Span = Span(Start, Pos), .Kind = TokenKind::OrOr, .Value = "||"};
-    }
-    break;
 
   default:
     break;
