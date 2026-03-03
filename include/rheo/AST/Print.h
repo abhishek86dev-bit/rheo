@@ -63,32 +63,36 @@ class ASTPrinter {
 
   llvm::StringRef builtinKindStr(BuiltinKind K) {
     switch (K) {
+    case BuiltinKind::UInt:
+      return "UInt";
+    case BuiltinKind::Int:
+      return "Int";
     case BuiltinKind::I8:
-      return "i8";
+      return "I8";
     case BuiltinKind::I16:
-      return "i16";
+      return "I16";
     case BuiltinKind::I32:
-      return "i32";
+      return "I32";
     case BuiltinKind::I64:
-      return "i64";
+      return "I64";
     case BuiltinKind::U8:
-      return "u8";
+      return "U8";
     case BuiltinKind::U16:
-      return "u16";
+      return "U16";
     case BuiltinKind::U32:
-      return "u32";
+      return "U32";
     case BuiltinKind::U64:
-      return "u64";
+      return "U64";
     case BuiltinKind::F32:
-      return "f32";
+      return "F32";
     case BuiltinKind::F64:
-      return "f64";
+      return "F64";
     case BuiltinKind::Bool:
-      return "bool";
-    case BuiltinKind::Void:
-      return "void";
+      return "Bool";
+    case BuiltinKind::Unit:
+      return "Unit";
     case BuiltinKind::Never:
-      return "never";
+      return "Never";
     }
   }
 
@@ -132,15 +136,6 @@ public:
 
   void printTypeKind(const BuiltinType &T) { OS << builtinKindStr(T.Kind); }
   void printTypeKind(const NamedType &T) { OS << T.Name; }
-  void printTypeKind(const TupleType &T) {
-    OS << "(";
-    for (size_t I = 0; I < T.Elements.size(); ++I) {
-      if (I)
-        OS << ", ";
-      printType(*T.Elements[I]);
-    }
-    OS << ")";
-  }
 
   void printExpr(const Expr &E) {
     CurrentLoc = &E.Location;

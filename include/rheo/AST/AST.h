@@ -150,6 +150,7 @@ struct Stmt {
 };
 
 enum class BuiltinKind : std::uint8_t {
+  Int,
   I8,
   I16,
   I32,
@@ -158,10 +159,11 @@ enum class BuiltinKind : std::uint8_t {
   U16,
   U32,
   U64,
+  UInt,
   F32,
   F64,
   Bool,
-  Void,
+  Unit,
   Never
 };
 
@@ -173,15 +175,12 @@ struct NamedType {
   llvm::StringRef Name;
 };
 
-struct TupleType {
-  llvm::ArrayRef<Type *> Elements;
-};
-
-using TypeKind = std::variant<BuiltinType, NamedType, TupleType>;
+using TypeKind = std::variant<BuiltinType, NamedType>;
 
 struct Type {
   Span Location;
   TypeKind Kind;
+  Type(Span Location, TypeKind Kind) : Location(Location), Kind(Kind) {}
 };
 
 struct Param {

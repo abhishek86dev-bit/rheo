@@ -19,6 +19,8 @@ class Parser {
   void eatNextToken() { NextToken = Lex.nextToken(); }
   void skipNewLines();
 
+  Type *parseType();
+
   Expr *parsePrimaryExpr();
   Expr *parseUnaryExpr();
   Expr *parseCallExpr();
@@ -27,13 +29,16 @@ class Parser {
 
   Stmt *parseReturnStmt();
   Stmt *parseExprStmt();
+  Stmt *parseExprOrAssignStmt();
 
+  Type *errorUnexpectedType();
+  Type *errorExpectedRParenInType(Span OpenParenSpan);
+  Stmt *errorUnexpectedColonEqualAfterType(Span TypeSpan);
   Stmt *errorExpectedStmtTerminator(Span StmtSpan);
   Stmt *errorExpectedStmt();
-  Stmt *parseExprOrAssignStmt();
   Stmt *errorInvalidAssignmentTarget(Expr *LHS);
   Stmt *errorInvalidDeclTarget(Expr *LHS);
-
+  Stmt *errorExpectedIdentifierAfterMut(Span MutSpan);
   Expr *errorExpectedRParen(Span OpenParenSpan);
   Expr *errorExpectedExpr();
   Expr *errorExpectedCommaOrRParenInCall(Span OpenParenSpan);

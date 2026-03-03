@@ -45,6 +45,7 @@ static std::string describeToken(const Token &Tok) {
   case TK::Percent:
   case TK::EqualEqual:
   case TK::BangEqual:
+  case TK::Bang: // added
   case TK::Less:
   case TK::LessEqual:
   case TK::Greater:
@@ -59,8 +60,10 @@ static std::string describeToken(const Token &Tok) {
   // literals
   case TK::IntLiteral:
     return std::format("integer literal {}", Tok.Value.str());
+
   case TK::FloatLiteral:
     return std::format("floating-point literal {}", Tok.Value.str());
+
   case TK::True:
   case TK::False:
     return std::format("boolean literal {}", Tok.Value.str());
@@ -72,13 +75,14 @@ static std::string describeToken(const Token &Tok) {
   // type keywords
   case TK::Int:
   case TK::Int8:
+  case TK::Int16: // added
   case TK::Int32:
   case TK::Int64:
   case TK::UInt:
   case TK::UInt8:
+  case TK::UInt16: // added
   case TK::UInt32:
   case TK::UInt64:
-  case TK::Float:
   case TK::Float32:
   case TK::Float64:
   case TK::Bool:
@@ -93,6 +97,7 @@ static std::string describeToken(const Token &Tok) {
   case TK::While:
   case TK::Continue:
   case TK::Break:
+  case TK::Mut:
     return std::format("keyword '{}'", Tok.Value.str());
 
   case TK::NewLine:
@@ -121,14 +126,9 @@ Expr *Parser::errorExpectedRParen(Span OpenParenSpan) {
 
   Diag.addLabel(Label::secondary(OpenParenSpan, File, "opening '(' here"));
 
-  Diag.setHelp("every '(' must be closed with ')'\n"
-               "  • unit value: ()\n"
-               "  • grouping: (expression)");
+  Diag.setHelp("every '(' must be closed with ')'");
 
   Diags.emit(Diag);
-
-  if (Tok.Kind != TokenKind::RParen)
-    eatNextToken();
 
   return nullptr;
 }
@@ -141,15 +141,13 @@ Expr *Parser::errorExpectedExpr() {
 
   auto Found = describeToken(Tok);
 
-  Diag.setMessage(std::format("expected an expression, found {}", Found));
+  Diag.setMessage(std::format("expected expression, found {}", Found));
 
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
 
-  Diag.setHelp("expressions include:\n"
-               "  • literals: 42, 3.14, true, false, ()\n"
-               "  • identifiers: x, value\n"
-               "  • grouped: (expression)");
+  Diag.setHelp(
+      "expressions include literals, identifiers, or grouped expressions");
 
   Diags.emit(Diag);
 
@@ -161,7 +159,7 @@ Expr *Parser::errorExpectedCommaOrRParenInCall(Span OpenParenSpan) {
   Token Tok = NextToken;
 
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage("expected ',' or ')' in call");
+  Diag.setMessage("expected ',' or ')'");
   Diag.setCode("E1003");
 
   Diag.addLabel(Label::primary(
@@ -170,19 +168,9 @@ Expr *Parser::errorExpectedCommaOrRParenInCall(Span OpenParenSpan) {
 
   Diag.addLabel(Label::secondary(OpenParenSpan, File, "call started here"));
 
-  Diag.setHelp(
-      "function call arguments must be separated by ',' and closed with ')'\n"
-      "  • foo(a, b)\n"
-      "  • foo()\n"
-      "  • foo(x + y, z)");
+  Diag.setHelp("separate arguments with ',' and close with ')'");
 
   Diags.emit(Diag);
-
-  while (Tok.Kind != TokenKind::Comma && Tok.Kind != TokenKind::RParen &&
-         Tok.Kind != TokenKind::Eof) {
-    eatNextToken();
-    Tok = NextToken;
-  }
 
   return nullptr;
 }
@@ -198,28 +186,14 @@ Stmt *Parser::errorExpectedStmtTerminator(Span StmtSpan) {
   Diag.setMessage(
       std::format("expected ';' or newline after statement, found {}", Found));
 
-  Diag.addLabel(Label::primary(
-      Tok.Span, File,
-      std::format("unexpected {} — statement must end here", Found)));
+  Diag.addLabel(
+      Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
 
   Diag.addLabel(Label::secondary(StmtSpan, File, "statement starts here"));
 
-  Diag.setHelp("terminate statements with:\n"
-               "  • ';'  explicit terminator\n"
-               "  • newline  implicit terminator\n");
+  Diag.setHelp("terminate statements with ';' or newline");
 
   Diags.emit(Diag);
-
-  while (NextToken.Kind != TokenKind::Semicolon &&
-         NextToken.Kind != TokenKind::NewLine &&
-         NextToken.Kind != TokenKind::Eof) {
-    eatNextToken();
-  }
-
-  if (NextToken.Kind == TokenKind::Semicolon ||
-      NextToken.Kind == TokenKind::NewLine) {
-    eatNextToken();
-  }
 
   return nullptr;
 }
@@ -232,31 +206,14 @@ Stmt *Parser::errorExpectedStmt() {
 
   auto Found = describeToken(Tok);
 
-  Diag.setMessage(std::format("expected a statement, found {}", Found));
+  Diag.setMessage(std::format("expected statement, found {}", Found));
 
-  Diag.addLabel(Label::primary(
-      Tok.Span, File,
-      std::format("unexpected {} — statement expected here", Found)));
+  Diag.addLabel(
+      Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
 
-  Diag.setHelp("statements include:\n"
-               "  • variable declarations: let x = 1\n"
-               "  • assignments: x = 1\n"
-               "  • expression statements: f(x)\n"
-               "  • control flow: if, while, for\n");
+  Diag.setHelp("expected declaration, assignment, expression, or control flow");
 
   Diags.emit(Diag);
-
-  while (NextToken.Kind != TokenKind::NewLine &&
-         NextToken.Kind != TokenKind::Semicolon &&
-         NextToken.Kind != TokenKind::RBrace &&
-         NextToken.Kind != TokenKind::Eof) {
-    eatNextToken();
-  }
-
-  if (NextToken.Kind == TokenKind::Semicolon ||
-      NextToken.Kind == TokenKind::NewLine) {
-    eatNextToken();
-  }
 
   return nullptr;
 }
@@ -270,10 +227,7 @@ Stmt *Parser::errorInvalidAssignmentTarget(Expr *LHS) {
   Diag.addLabel(
       Label::primary(LHS->Location, File, "cannot assign to this expression"));
 
-  Diag.setHelp("only variables can be assigned to\n"
-               "  • valid:   x = 10\n"
-               "  • invalid: f() = 10\n"
-               "  • invalid: 1 + 2 = 10");
+  Diag.setHelp("only variables can be assigned");
 
   Diags.emit(Diag);
   return nullptr;
@@ -285,20 +239,196 @@ Stmt *Parser::errorInvalidDeclTarget(Expr *LHS) {
 
   Diag.setMessage("invalid declaration target");
 
-  Diag.addLabel(Label::primary(LHS->Location, File,
-                               "cannot declare this expression as a variable"));
+  Diag.addLabel(
+      Label::primary(LHS->Location, File, "cannot declare this expression"));
 
-  Diag.setHelp("only identifiers can be declared\n"
-               "  • valid:   x := 10\n"
-               "  • invalid: f() := 10");
+  Diag.setHelp("only identifiers can be declared");
 
   Diags.emit(Diag);
+  return nullptr;
+}
+
+Type *Parser::errorUnexpectedType() {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setCode("E1008");
+
+  auto Found = describeToken(Tok);
+
+  Diag.setMessage(std::format("expected type, found {}", Found));
+
+  Diag.addLabel(
+      Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
+
+  Diag.setHelp("types include builtins and identifiers");
+
+  Diags.emit(Diag);
+
+  eatNextToken();
+  return nullptr;
+}
+
+Type *Parser::errorExpectedRParenInType(Span OpenParenSpan) {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected ')'");
+  Diag.setCode("E1009");
+
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of ')'", describeToken(Tok))));
+
+  Diag.addLabel(
+      Label::secondary(OpenParenSpan, File, "opening '(' in type here"));
+
+  Diag.setHelp("type parentheses must be closed with ')'");
+
+  Diags.emit(Diag);
+
+  eatNextToken();
+  return nullptr;
+}
+
+Stmt *Parser::errorUnexpectedColonEqualAfterType(Span TypeSpan) {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("unexpected ':=' after type");
+  Diag.setCode("E1010");
+
+  Diag.addLabel(
+      Label::primary(Tok.Span, File, "':=' cannot follow a type annotation"));
+
+  Diag.addLabel(Label::secondary(TypeSpan, File, "type specified here"));
+
+  Diag.setHelp("use '=' to assign a value after a type annotation");
+
+  Diags.emit(Diag);
+
+  eatNextToken(); // consume ':='
+  return nullptr;
+}
+
+Stmt *Parser::errorExpectedIdentifierAfterMut(Span MutSpan) {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected identifier after 'mut'");
+  Diag.setCode("E1011");
+
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of identifier", describeToken(Tok))));
+
+  Diag.addLabel(
+      Label::secondary(MutSpan, File, "'mut' starts a mutable binding here"));
+
+  Diag.setHelp("write 'mut <name>' to declare a mutable variable");
+
+  Diags.emit(Diag);
+
+  eatNextToken();
   return nullptr;
 }
 
 void Parser::skipNewLines() {
   while (NextToken.Kind == TokenKind::NewLine)
     eatNextToken();
+}
+
+Type *Parser::parseType() {
+  switch (NextToken.Kind) {
+  case TokenKind::Bool: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Bool});
+  }
+  case TokenKind::Int: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Int});
+  }
+  case TokenKind::Int8: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I8});
+  }
+  case TokenKind::Int16: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I16});
+  }
+  case TokenKind::Int32: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I32});
+  }
+  case TokenKind::Int64: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I64});
+  }
+  case TokenKind::UInt: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::UInt});
+  }
+  case TokenKind::UInt8: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind ::U8});
+  }
+  case TokenKind::UInt16: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U16});
+  }
+  case TokenKind::UInt32: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U32});
+  }
+  case TokenKind::UInt64: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U64});
+  }
+  case TokenKind::Float32: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::F32});
+  }
+  case TokenKind::Float64: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::F64});
+  }
+  case TokenKind::LParen: {
+    auto LTok = NextToken;
+    eatNextToken();
+    if (NextToken.Kind != TokenKind::RParen)
+      return errorExpectedRParenInType(LTok.Span);
+    auto RTok = NextToken;
+    eatNextToken();
+    auto Loc = LTok.Span.merge(RTok.Span);
+    return Context.create<Type>(Loc, BuiltinType{BuiltinKind::Unit});
+  }
+  case TokenKind::Bang: {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Never});
+  }
+  case TokenKind::Identifier: {
+    auto Tok = NextToken;
+    eatNextToken();
+    auto Name = Context.save(Tok.Value);
+    return Context.create<Type>(Tok.Span, NamedType{Name});
+  }
+  default:
+    return errorUnexpectedType();
+  }
 }
 
 Expr *Parser::parsePrimaryExpr() {
@@ -565,6 +695,14 @@ Stmt *Parser::parseExprStmt() {
 }
 
 Stmt *Parser::parseExprOrAssignStmt() {
+  auto IsMutable = false;
+  if (NextToken.Kind == TokenKind::Mut) {
+    auto MutTok = NextToken;
+    IsMutable = true;
+    eatNextToken();
+    if (NextToken.Kind != TokenKind::Identifier)
+      return errorExpectedIdentifierAfterMut(NextToken.Span);
+  }
   Expr *LHS = parseExpr();
   if (!LHS)
     return nullptr;
@@ -577,6 +715,28 @@ Stmt *Parser::parseExprOrAssignStmt() {
       return errorInvalidAssignmentTarget(LHS);
     auto Loc = LHS->Location.merge(RHS->Location);
     return Context.create<Stmt>(Loc, AssignStmt{LHS, RHS});
+  }
+  if (NextToken.Kind == TokenKind::ColonEqual ||
+      NextToken.Kind == TokenKind::Colon) {
+    Type *Ty = nullptr;
+    if (NextToken.Kind == TokenKind::Colon) {
+      eatNextToken();
+      auto TypeTok = NextToken;
+      Ty = parseType();
+      if (!Ty)
+        return nullptr;
+      if (NextToken.Kind != TokenKind::ColonEqual)
+        return errorUnexpectedColonEqualAfterType(TypeTok.Span);
+    }
+    eatNextToken();
+    auto *RHS = parseExpr();
+    if (!RHS)
+      return nullptr;
+    if (!std::holds_alternative<VarRef>(LHS->Kind))
+      return errorInvalidDeclTarget(LHS);
+    auto Loc = LHS->Location.merge(RHS->Location);
+    auto Name = std::get<VarRef>(LHS->Kind).Name;
+    return Context.create<Stmt>(Loc, VarDecl{Name, Ty, RHS, IsMutable});
   }
   return Context.create<Stmt>(LHS->Location, ExprStmt{LHS});
 }
@@ -600,6 +760,9 @@ Stmt *Parser::parseStmt() {
     S = parseExprStmt();
     break;
   case TokenKind::Identifier:
+    S = parseExprOrAssignStmt();
+    break;
+  case TokenKind::Mut:
     S = parseExprOrAssignStmt();
     break;
   default:

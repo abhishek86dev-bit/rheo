@@ -100,6 +100,7 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
     break;
 
   case 3:
+    KW("mut", TokenKind::Mut)
     KW("fun", TokenKind::Fun)
     KW("Int", TokenKind::Int)
     KW("not", TokenKind::Not)
@@ -116,7 +117,6 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
   case 5:
     KW("false", TokenKind::False)
     KW("while", TokenKind::While)
-    KW("Float", TokenKind::Float)
     KW("Int8", TokenKind::Int8)
     KW("UInt", TokenKind::UInt)
     break;
@@ -254,6 +254,7 @@ Token Lexer::nextToken() {
               .Kind = TokenKind::BangEqual,
               .Value = "!="};
     }
+    return {.Span = Span(Start, Pos), .Kind = TokenKind::Bang, .Value = "!"};
 
   case '<':
     if (Pos < Input.size() && peek() == '=') {

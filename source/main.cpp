@@ -6,9 +6,7 @@
 #include "rheo/Frontend/Parser.h"
 
 int main() {
-  const auto *Src = R"(
-    f x = 10
-  )";
+  const auto *Src = R"( x := sum 10 20 )";
   rheo::SourceManager Manager;
   auto FileId = Manager.addFile("main.rheo", Src);
   rheo::DiagnosticEngine Engine;
