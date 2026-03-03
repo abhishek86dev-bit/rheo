@@ -112,6 +112,7 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
     KW("true", TokenKind::True)
     KW("Bool", TokenKind::Bool)
     KW("else", TokenKind::Else)
+    KW("elseif", TokenKind::ElseIf)
     break;
 
   case 5:

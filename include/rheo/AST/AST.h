@@ -91,12 +91,14 @@ struct VarRef {
 struct BlockExpr {
   llvm::ArrayRef<Stmt *> Stmts;
   Expr *Tail; // nullable
+  BlockExpr(llvm::ArrayRef<Stmt *> Stmts, Expr *Tail)
+      : Stmts(Stmts), Tail(Tail) {}
 };
 
 struct IfExpr {
   Expr *Condition;
   BlockExpr *ThenBlock;
-  Expr *ElseBranch; // nullable
+  BlockExpr *ElseBranch; // nullable
 };
 
 struct WhileExpr {

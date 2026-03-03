@@ -2,6 +2,8 @@
 #include "rheo/AST/AST.h"
 #include "rheo/Frontend/Token.h"
 #include <format>
+#include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
 #include <string>
 #include <variant>
@@ -12,8 +14,6 @@ static std::string describeToken(const Token &Tok) {
   using TK = TokenKind;
 
   switch (Tok.Kind) {
-
-  // punctuation
   case TK::LParen:
     return "'('";
   case TK::RParen:
@@ -37,7 +37,6 @@ static std::string describeToken(const Token &Tok) {
   case TK::ColonEqual:
     return "':='";
 
-  // operators
   case TK::Plus:
   case TK::Minus:
   case TK::Star:
@@ -45,7 +44,7 @@ static std::string describeToken(const Token &Tok) {
   case TK::Percent:
   case TK::EqualEqual:
   case TK::BangEqual:
-  case TK::Bang: // added
+  case TK::Bang:
   case TK::Less:
   case TK::LessEqual:
   case TK::Greater:
@@ -57,7 +56,6 @@ static std::string describeToken(const Token &Tok) {
   case TK::Or:
     return std::format("operator '{}'", Tok.Value.str());
 
-  // literals
   case TK::IntLiteral:
     return std::format("integer literal {}", Tok.Value.str());
 
@@ -68,19 +66,17 @@ static std::string describeToken(const Token &Tok) {
   case TK::False:
     return std::format("boolean literal {}", Tok.Value.str());
 
-  // identifier
   case TK::Identifier:
     return std::format("identifier '{}'", Tok.Value.str());
 
-  // type keywords
   case TK::Int:
   case TK::Int8:
-  case TK::Int16: // added
+  case TK::Int16:
   case TK::Int32:
   case TK::Int64:
   case TK::UInt:
   case TK::UInt8:
-  case TK::UInt16: // added
+  case TK::UInt16:
   case TK::UInt32:
   case TK::UInt64:
   case TK::Float32:
@@ -88,7 +84,6 @@ static std::string describeToken(const Token &Tok) {
   case TK::Bool:
     return std::format("type '{}'", Tok.Value.str());
 
-  // language keywords
   case TK::Fun:
   case TK::End:
   case TK::Return:
@@ -98,14 +93,13 @@ static std::string describeToken(const Token &Tok) {
   case TK::Continue:
   case TK::Break:
   case TK::Mut:
+  case TK::ElseIf:
     return std::format("keyword '{}'", Tok.Value.str());
 
   case TK::NewLine:
     return "newline";
-
   case TK::Eof:
     return "end of file";
-
   case TK::Error:
     return "invalid token";
   }
@@ -115,120 +109,82 @@ static std::string describeToken(const Token &Tok) {
 
 Expr *Parser::errorExpectedRParen(Span OpenParenSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setMessage("expected ')'");
   Diag.setCode("E1001");
-
   Diag.addLabel(Label::primary(
       Tok.Span, File,
       std::format("found {} instead of ')'", describeToken(Tok))));
-
   Diag.addLabel(Label::secondary(OpenParenSpan, File, "opening '(' here"));
-
   Diag.setHelp("every '(' must be closed with ')'");
-
   Diags.emit(Diag);
-
   return nullptr;
 }
 
 Expr *Parser::errorExpectedExpr() {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1002");
-
   auto Found = describeToken(Tok);
-
   Diag.setMessage(std::format("expected expression, found {}", Found));
-
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
-
   Diag.setHelp(
       "expressions include literals, identifiers, or grouped expressions");
-
   Diags.emit(Diag);
-
   eatNextToken();
   return nullptr;
 }
 
 Expr *Parser::errorExpectedCommaOrRParenInCall(Span OpenParenSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setMessage("expected ',' or ')'");
   Diag.setCode("E1003");
-
   Diag.addLabel(Label::primary(
       Tok.Span, File,
       std::format("found {} instead of ',' or ')'", describeToken(Tok))));
-
   Diag.addLabel(Label::secondary(OpenParenSpan, File, "call started here"));
-
   Diag.setHelp("separate arguments with ',' and close with ')'");
-
   Diags.emit(Diag);
-
   return nullptr;
 }
 
 Stmt *Parser::errorExpectedStmtTerminator(Span StmtSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1004");
-
   auto Found = describeToken(Tok);
-
   Diag.setMessage(
       std::format("expected ';' or newline after statement, found {}", Found));
-
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
-
   Diag.addLabel(Label::secondary(StmtSpan, File, "statement starts here"));
-
   Diag.setHelp("terminate statements with ';' or newline");
-
   Diags.emit(Diag);
-
   return nullptr;
 }
 
 Stmt *Parser::errorExpectedStmt() {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1005");
-
   auto Found = describeToken(Tok);
-
   Diag.setMessage(std::format("expected statement, found {}", Found));
-
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
-
   Diag.setHelp("expected declaration, assignment, expression, or control flow");
-
   Diags.emit(Diag);
-
   return nullptr;
 }
 
 Stmt *Parser::errorInvalidAssignmentTarget(Expr *LHS) {
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1006");
-
   Diag.setMessage("invalid assignment target");
-
   Diag.addLabel(
       Label::primary(LHS->Location, File, "cannot assign to this expression"));
-
   Diag.setHelp("only variables can be assigned");
-
   Diags.emit(Diag);
   return nullptr;
 }
@@ -236,100 +192,112 @@ Stmt *Parser::errorInvalidAssignmentTarget(Expr *LHS) {
 Stmt *Parser::errorInvalidDeclTarget(Expr *LHS) {
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1007");
-
   Diag.setMessage("invalid declaration target");
-
   Diag.addLabel(
       Label::primary(LHS->Location, File, "cannot declare this expression"));
-
   Diag.setHelp("only identifiers can be declared");
-
   Diags.emit(Diag);
   return nullptr;
 }
 
 Type *Parser::errorUnexpectedType() {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setCode("E1008");
-
   auto Found = describeToken(Tok);
-
   Diag.setMessage(std::format("expected type, found {}", Found));
-
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
-
   Diag.setHelp("types include builtins and identifiers");
-
   Diags.emit(Diag);
-
   eatNextToken();
   return nullptr;
 }
 
 Type *Parser::errorExpectedRParenInType(Span OpenParenSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setMessage("expected ')'");
   Diag.setCode("E1009");
-
   Diag.addLabel(Label::primary(
       Tok.Span, File,
       std::format("found {} instead of ')'", describeToken(Tok))));
-
   Diag.addLabel(
       Label::secondary(OpenParenSpan, File, "opening '(' in type here"));
-
   Diag.setHelp("type parentheses must be closed with ')'");
-
   Diags.emit(Diag);
-
   eatNextToken();
   return nullptr;
 }
 
 Stmt *Parser::errorUnexpectedColonEqualAfterType(Span TypeSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setMessage("unexpected ':=' after type");
   Diag.setCode("E1010");
-
   Diag.addLabel(
       Label::primary(Tok.Span, File, "':=' cannot follow a type annotation"));
-
   Diag.addLabel(Label::secondary(TypeSpan, File, "type specified here"));
-
   Diag.setHelp("use '=' to assign a value after a type annotation");
-
   Diags.emit(Diag);
-
-  eatNextToken(); // consume ':='
+  eatNextToken();
   return nullptr;
 }
 
 Stmt *Parser::errorExpectedIdentifierAfterMut(Span MutSpan) {
   Token Tok = NextToken;
-
   Diagnostic Diag(Severity::Error);
   Diag.setMessage("expected identifier after 'mut'");
   Diag.setCode("E1011");
-
   Diag.addLabel(Label::primary(
       Tok.Span, File,
       std::format("found {} instead of identifier", describeToken(Tok))));
-
   Diag.addLabel(
       Label::secondary(MutSpan, File, "'mut' starts a mutable binding here"));
-
   Diag.setHelp("write 'mut <name>' to declare a mutable variable");
-
   Diags.emit(Diag);
-
   eatNextToken();
+  return nullptr;
+}
+
+Stmt *Parser::errorInvalidMutInitializer() {
+  auto Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected ':=' after mutable binding");
+  Diag.setCode("E1013");
+  Diag.addLabel(Label::primary(Tok.Span, File, "found '=' instead of ':='"));
+  Diags.emit(Diag);
+  eatNextToken();
+  return nullptr;
+}
+
+Expr *Parser::errorExpectedThenBlock(Span IfSpan) {
+  Token Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected newline after 'if' condition");
+  Diag.setCode("E1014");
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of newline", describeToken(Tok))));
+  Diag.addLabel(Label::secondary(IfSpan, File, "'if' starts here"));
+  Diag.setHelp("put the condition on the same line as 'if', then start the "
+               "body on the next line");
+  Diags.emit(Diag);
+  return nullptr;
+}
+
+Expr *Parser::errorExpectedWhileBody(Span WhileSpan) {
+  Token Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected newline after 'while' condition");
+  Diag.setCode("E1015");
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of newline", describeToken(Tok))));
+  Diag.addLabel(Label::secondary(WhileSpan, File, "'while' starts here"));
+  Diag.setHelp("put the condition on the same line as 'while', then start the "
+               "body on the next line");
+  Diags.emit(Diag);
   return nullptr;
 }
 
@@ -339,93 +307,61 @@ void Parser::skipNewLines() {
 }
 
 Type *Parser::parseType() {
+  using TK = TokenKind;
+
+  auto MakeBuiltin = [&](BuiltinKind K) -> Type * {
+    auto Tok = NextToken;
+    eatNextToken();
+    return Context.create<Type>(Tok.Span, BuiltinType{K});
+  };
+
   switch (NextToken.Kind) {
-  case TokenKind::Bool: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Bool});
-  }
-  case TokenKind::Int: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Int});
-  }
-  case TokenKind::Int8: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I8});
-  }
-  case TokenKind::Int16: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I16});
-  }
-  case TokenKind::Int32: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I32});
-  }
-  case TokenKind::Int64: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::I64});
-  }
-  case TokenKind::UInt: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::UInt});
-  }
-  case TokenKind::UInt8: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind ::U8});
-  }
-  case TokenKind::UInt16: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U16});
-  }
-  case TokenKind::UInt32: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U32});
-  }
-  case TokenKind::UInt64: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::U64});
-  }
-  case TokenKind::Float32: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::F32});
-  }
-  case TokenKind::Float64: {
-    auto Tok = NextToken;
-    eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::F64});
-  }
-  case TokenKind::LParen: {
+  case TK::Bool:
+    return MakeBuiltin(BuiltinKind::Bool);
+  case TK::Int:
+    return MakeBuiltin(BuiltinKind::Int);
+  case TK::Int8:
+    return MakeBuiltin(BuiltinKind::I8);
+  case TK::Int16:
+    return MakeBuiltin(BuiltinKind::I16);
+  case TK::Int32:
+    return MakeBuiltin(BuiltinKind::I32);
+  case TK::Int64:
+    return MakeBuiltin(BuiltinKind::I64);
+  case TK::UInt:
+    return MakeBuiltin(BuiltinKind::UInt);
+  case TK::UInt8:
+    return MakeBuiltin(BuiltinKind::U8);
+  case TK::UInt16:
+    return MakeBuiltin(BuiltinKind::U16);
+  case TK::UInt32:
+    return MakeBuiltin(BuiltinKind::U32);
+  case TK::UInt64:
+    return MakeBuiltin(BuiltinKind::U64);
+  case TK::Float32:
+    return MakeBuiltin(BuiltinKind::F32);
+  case TK::Float64:
+    return MakeBuiltin(BuiltinKind::F64);
+  case TK::Bang:
+    return MakeBuiltin(BuiltinKind::Never);
+
+  case TK::LParen: {
     auto LTok = NextToken;
     eatNextToken();
-    if (NextToken.Kind != TokenKind::RParen)
+    if (NextToken.Kind != TK::RParen)
       return errorExpectedRParenInType(LTok.Span);
     auto RTok = NextToken;
     eatNextToken();
-    auto Loc = LTok.Span.merge(RTok.Span);
-    return Context.create<Type>(Loc, BuiltinType{BuiltinKind::Unit});
+    return Context.create<Type>(LTok.Span.merge(RTok.Span),
+                                BuiltinType{BuiltinKind::Unit});
   }
-  case TokenKind::Bang: {
+
+  case TK::Identifier: {
     auto Tok = NextToken;
     eatNextToken();
-    return Context.create<Type>(Tok.Span, BuiltinType{BuiltinKind::Never});
+    return Context.create<Type>(Tok.Span, NamedType{Context.save(Tok.Value)});
   }
-  case TokenKind::Identifier: {
-    auto Tok = NextToken;
-    eatNextToken();
-    auto Name = Context.save(Tok.Value);
-    return Context.create<Type>(Tok.Span, NamedType{Name});
-  }
+
   default:
     return errorUnexpectedType();
   }
@@ -462,6 +398,11 @@ Expr *Parser::parsePrimaryExpr() {
     eatNextToken();
     return Context.create<Expr>(Tok.Span, VarRef{Context.save(Tok.Value)});
   }
+  case TokenKind::Continue: {
+    auto Loc = NextToken.Span;
+    eatNextToken();
+    return Context.create<Expr>(Loc, ContinueExpr{});
+  }
   case TokenKind::LParen: {
     auto LTok = NextToken;
     eatNextToken();
@@ -471,19 +412,41 @@ Expr *Parser::parsePrimaryExpr() {
       return Context.create<Expr>(LTok.Span.merge(RTok.Span), UnitLiteral{});
     }
     Expr *Inner = parseExpr();
+    if (!Inner)
+      return nullptr;
     if (NextToken.Kind != TokenKind::RParen)
       return errorExpectedRParen(LTok.Span);
-    auto RTok = NextToken;
     eatNextToken();
     return Inner;
   }
+  case TokenKind::Break:
+    return parseBreakExpr();
+  case TokenKind::If:
+    return parseIf();
+  case TokenKind::While:
+    return parseWhile();
   default:
     return errorExpectedExpr();
   }
 }
 
-static bool startsWithAtom(TokenKind Tok) {
-  switch (Tok) {
+Expr *Parser::parseBreakExpr() {
+  auto Loc = NextToken.Span;
+  eatNextToken();
+  Expr *Value = nullptr;
+  if (NextToken.Kind != TokenKind::NewLine &&
+      NextToken.Kind != TokenKind::Semicolon &&
+      NextToken.Kind != TokenKind::Eof) {
+    Value = parseExpr();
+    if (!Value)
+      return nullptr;
+    Loc = Loc.merge(Value->Location);
+  }
+  return Context.create<Expr>(Loc, BreakExpr{Value});
+}
+
+static bool isAtomStart(TokenKind K) {
+  switch (K) {
   case TokenKind::Identifier:
   case TokenKind::IntLiteral:
   case TokenKind::FloatLiteral:
@@ -500,12 +463,15 @@ Expr *Parser::parseCallExpr() {
   Expr *ExprNode = parsePrimaryExpr();
   if (!ExprNode)
     return nullptr;
+
   while (true) {
     if (NextToken.Kind == TokenKind::LParen) {
       Token LParen = NextToken;
-      eatNextToken(); // (
+      eatNextToken();
       skipNewLines();
+
       llvm::SmallVector<Expr *, 8> Args;
+
       if (NextToken.Kind == TokenKind::RParen) {
         eatNextToken();
       } else {
@@ -516,6 +482,7 @@ Expr *Parser::parseCallExpr() {
             break;
           Args.push_back(Arg);
           skipNewLines();
+
           if (NextToken.Kind == TokenKind::Comma) {
             eatNextToken();
             skipNewLines();
@@ -525,35 +492,39 @@ Expr *Parser::parseCallExpr() {
             eatNextToken();
             break;
           }
+
           errorExpectedCommaOrRParenInCall(LParen.Span);
+
           if (NextToken.Kind == TokenKind::Comma) {
             eatNextToken();
             skipNewLines();
             continue;
           }
-          if (NextToken.Kind == TokenKind::RParen) {
+          if (NextToken.Kind == TokenKind::RParen)
             eatNextToken();
-          }
           break;
         }
       }
+
       for (Expr *Arg : Args) {
         Span S = ExprNode->Location.merge(Arg->Location);
         ExprNode = Context.create<Expr>(S, CallExpr{ExprNode, Arg});
       }
       continue;
     }
-    if (startsWithAtom(NextToken.Kind)) {
-      skipNewLines();
-      Expr *Arg = parseUnaryExpr();
+
+    if (isAtomStart(NextToken.Kind)) {
+      Expr *Arg = parsePrimaryExpr();
       if (!Arg)
         break;
       Span S = ExprNode->Location.merge(Arg->Location);
       ExprNode = Context.create<Expr>(S, CallExpr{ExprNode, Arg});
       continue;
     }
+
     break;
   }
+
   return ExprNode;
 }
 
@@ -574,8 +545,8 @@ Expr *Parser::parseUnaryExpr() {
       Op = UnaryOp::Neg;
     else
       Op = UnaryOp::Plus;
-    Span S = OpTok.Span.merge(Operand->Location);
-    return Context.create<Expr>(S, UnaryExpr{Op, Operand});
+    return Context.create<Expr>(OpTok.Span.merge(Operand->Location),
+                                UnaryExpr{Op, Operand});
   }
   default:
     return parseCallExpr();
@@ -594,12 +565,10 @@ static std::optional<BinaryOp> toBinaryOp(TokenKind K) {
     return BinaryOp::Div;
   case TokenKind::Percent:
     return BinaryOp::Mod;
-
   case TokenKind::EqualEqual:
     return BinaryOp::Eq;
   case TokenKind::BangEqual:
     return BinaryOp::NotEq;
-
   case TokenKind::Less:
     return BinaryOp::Lt;
   case TokenKind::LessEqual:
@@ -608,12 +577,10 @@ static std::optional<BinaryOp> toBinaryOp(TokenKind K) {
     return BinaryOp::Gt;
   case TokenKind::GreaterEqual:
     return BinaryOp::Ge;
-
   case TokenKind::And:
     return BinaryOp::And;
   case TokenKind::Or:
     return BinaryOp::Or;
-
   default:
     return std::nullopt;
   }
@@ -625,21 +592,17 @@ static int getBinOpPrecedence(BinaryOp Op) {
     return 1;
   case BinaryOp::And:
     return 2;
-
   case BinaryOp::Eq:
   case BinaryOp::NotEq:
     return 3;
-
   case BinaryOp::Lt:
   case BinaryOp::Le:
   case BinaryOp::Gt:
   case BinaryOp::Ge:
     return 4;
-
   case BinaryOp::Add:
   case BinaryOp::Sub:
     return 5;
-
   case BinaryOp::Mul:
   case BinaryOp::Div:
   case BinaryOp::Mod:
@@ -648,43 +611,113 @@ static int getBinOpPrecedence(BinaryOp Op) {
   return -1;
 }
 
-Expr *Parser::parseBinaryExpr(int MinOp) {
-  auto *Left = parseUnaryExpr();
+Expr *Parser::parseBinaryExpr(int MinPrec) {
+  Expr *Left = parseUnaryExpr();
+  if (!Left)
+    return nullptr;
+
   while (true) {
-    skipNewLines();
-    auto Tok = NextToken;
-    auto Op = toBinaryOp(Tok.Kind);
-    if (!Op.has_value()) {
+    if (NextToken.Kind == TokenKind::NewLine)
       break;
-    }
-    auto Bp = getBinOpPrecedence(*Op);
-    if (Bp < MinOp)
+
+    auto Op = toBinaryOp(NextToken.Kind);
+    if (!Op.has_value())
       break;
+
+    int Prec = getBinOpPrecedence(*Op);
+    if (Prec < MinPrec)
+      break;
+
+    Token OpTok = NextToken;
     eatNextToken();
-    auto *Right = parseBinaryExpr(Bp + 1);
+
+    Expr *Right = parseBinaryExpr(Prec + 1);
     if (!Right)
       return Left;
-    auto S = Tok.Span.merge(Right->Location);
-    Left = Context.create<Expr>(Expr(S, BinaryExpr{*Op, Left, Right}));
+
+    Span S = Left->Location.merge(Right->Location);
+    Left = Context.create<Expr>(S, BinaryExpr{*Op, Left, Right});
   }
+
   return Left;
 }
 
 Expr *Parser::parseExpr() { return parseBinaryExpr(); }
 
+Expr *Parser::parseIf() {
+  auto IfTok = NextToken;
+  eatNextToken();
+
+  auto *Cond = parseExpr();
+  if (!Cond)
+    return nullptr;
+
+  if (NextToken.Kind != TokenKind::NewLine &&
+      NextToken.Kind != TokenKind::Semicolon)
+    return errorExpectedThenBlock(IfTok.Span);
+  eatNextToken();
+
+  BlockExpr *Then =
+      parseBlock({TokenKind::End, TokenKind::ElseIf, TokenKind::Else});
+  BlockExpr *ElseBlock = nullptr;
+
+  if (NextToken.Kind == TokenKind::ElseIf) {
+    auto *ElseIf = parseIf();
+    if (!ElseIf)
+      return nullptr;
+    auto StmtsRef = Context.copyArray(llvm::ArrayRef<Stmt *>({}));
+    ElseBlock = Context.create<BlockExpr>(StmtsRef, ElseIf);
+  } else if (NextToken.Kind == TokenKind::Else) {
+    eatNextToken();
+    if (NextToken.Kind == TokenKind::NewLine ||
+        NextToken.Kind == TokenKind::Semicolon)
+      eatNextToken();
+    ElseBlock = parseBlock({TokenKind::End});
+    if (!ElseBlock)
+      return nullptr;
+    eatNextToken();
+  } else {
+    eatNextToken();
+  }
+
+  return Context.create<Expr>(IfTok.Span.merge(Cond->Location),
+                              IfExpr{Cond, Then, ElseBlock});
+}
+
+Expr *Parser::parseWhile() {
+  auto WhileTok = NextToken;
+  eatNextToken();
+
+  auto *Cond = parseExpr();
+  if (!Cond)
+    return nullptr;
+
+  if (NextToken.Kind != TokenKind::NewLine &&
+      NextToken.Kind != TokenKind::Semicolon)
+    return errorExpectedWhileBody(WhileTok.Span);
+  eatNextToken();
+
+  auto *Body = parseBlock({TokenKind::End});
+  return Context.create<Expr>(WhileTok.Span.merge(Cond->Location),
+                              WhileExpr{Cond, Body});
+}
+
 Stmt *Parser::parseReturnStmt() {
   auto ReturnLoc = NextToken.Span;
-  eatNextToken(); // return
+  eatNextToken();
+
   if (NextToken.Kind == TokenKind::NewLine ||
       NextToken.Kind == TokenKind::Semicolon) {
     eatNextToken();
     return Context.create<Stmt>(ReturnLoc, ReturnStmt{nullptr});
   }
+
   auto *Expr = parseExpr();
   if (!Expr)
     return nullptr;
-  auto Loc = ReturnLoc.merge(Expr->Location);
-  return Context.create<Stmt>(Loc, ReturnStmt{Expr});
+
+  return Context.create<Stmt>(ReturnLoc.merge(Expr->Location),
+                              ReturnStmt{Expr});
 }
 
 Stmt *Parser::parseExprStmt() {
@@ -695,27 +728,31 @@ Stmt *Parser::parseExprStmt() {
 }
 
 Stmt *Parser::parseExprOrAssignStmt() {
-  auto IsMutable = false;
+  bool IsMutable = false;
+  std::optional<Span> MutSpan;
   if (NextToken.Kind == TokenKind::Mut) {
-    auto MutTok = NextToken;
+    MutSpan = NextToken.Span;
     IsMutable = true;
     eatNextToken();
     if (NextToken.Kind != TokenKind::Identifier)
-      return errorExpectedIdentifierAfterMut(NextToken.Span);
+      return errorExpectedIdentifierAfterMut(*MutSpan);
   }
   Expr *LHS = parseExpr();
   if (!LHS)
     return nullptr;
   if (NextToken.Kind == TokenKind::Equal) {
+    if (IsMutable)
+      return errorInvalidMutInitializer();
     eatNextToken();
     auto *RHS = parseExpr();
     if (!RHS)
       return nullptr;
     if (!std::holds_alternative<VarRef>(LHS->Kind))
       return errorInvalidAssignmentTarget(LHS);
-    auto Loc = LHS->Location.merge(RHS->Location);
-    return Context.create<Stmt>(Loc, AssignStmt{LHS, RHS});
+    return Context.create<Stmt>(LHS->Location.merge(RHS->Location),
+                                AssignStmt{LHS, RHS});
   }
+
   if (NextToken.Kind == TokenKind::ColonEqual ||
       NextToken.Kind == TokenKind::Colon) {
     Type *Ty = nullptr;
@@ -734,17 +771,18 @@ Stmt *Parser::parseExprOrAssignStmt() {
       return nullptr;
     if (!std::holds_alternative<VarRef>(LHS->Kind))
       return errorInvalidDeclTarget(LHS);
-    auto Loc = LHS->Location.merge(RHS->Location);
     auto Name = std::get<VarRef>(LHS->Kind).Name;
-    return Context.create<Stmt>(Loc, VarDecl{Name, Ty, RHS, IsMutable});
+    return Context.create<Stmt>(LHS->Location.merge(RHS->Location),
+                                VarDecl{Name, Ty, RHS, IsMutable});
   }
+
   return Context.create<Stmt>(LHS->Location, ExprStmt{LHS});
 }
 
 Stmt *Parser::parseStmt() {
-  skipNewLines();
   auto Start = NextToken.Span;
   Stmt *S = nullptr;
+
   switch (NextToken.Kind) {
   case TokenKind::Return:
     S = parseReturnStmt();
@@ -757,19 +795,23 @@ Stmt *Parser::parseStmt() {
   case TokenKind::Plus:
   case TokenKind::Not:
   case TokenKind::LParen:
+  case TokenKind::If:
+  case TokenKind::While:
+  case TokenKind::Continue:
+  case TokenKind::Break:
     S = parseExprStmt();
     break;
   case TokenKind::Identifier:
-    S = parseExprOrAssignStmt();
-    break;
   case TokenKind::Mut:
     S = parseExprOrAssignStmt();
     break;
   default:
     return errorExpectedStmt();
   }
+
   if (!S)
     return nullptr;
+
   if (NextToken.Kind == TokenKind::NewLine ||
       NextToken.Kind == TokenKind::Semicolon ||
       NextToken.Kind == TokenKind::Eof) {
@@ -777,7 +819,42 @@ Stmt *Parser::parseStmt() {
       eatNextToken();
     return S;
   }
+
   return errorExpectedStmtTerminator(Start);
+}
+
+BlockExpr *Parser::parseBlock(llvm::ArrayRef<TokenKind> Terminators) {
+  llvm::SmallVector<Stmt *, 8> Stmts;
+
+  while (NextToken.Kind != TokenKind::Eof) {
+    skipNewLines();
+    if (llvm::is_contained(Terminators, NextToken.Kind))
+      break;
+
+    auto *S = parseStmt();
+    if (!S) {
+      while (NextToken.Kind != TokenKind::NewLine &&
+             NextToken.Kind != TokenKind::Semicolon &&
+             NextToken.Kind != TokenKind::Eof &&
+             !llvm::is_contained(Terminators, NextToken.Kind))
+        eatNextToken();
+      continue;
+    }
+
+    Stmts.push_back(S);
+  }
+
+  Expr *Tail = nullptr;
+  if (!Stmts.empty()) {
+    auto *Last = Stmts.back();
+    if (std::holds_alternative<ExprStmt>(Last->Kind)) {
+      Tail = std::get<ExprStmt>(Last->Kind).Expr;
+      Stmts.pop_back();
+    }
+  }
+
+  return Context.create<BlockExpr>(Context.copyArray(llvm::ArrayRef(Stmts)),
+                                   Tail);
 }
 
 } // namespace rheo

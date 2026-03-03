@@ -54,6 +54,7 @@ enum class TokenKind : std::uint8_t {
   Return,
   End,
   If,
+  ElseIf,
   Else,
   While,
   Continue,

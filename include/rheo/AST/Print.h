@@ -247,7 +247,7 @@ public:
       indent();
       OS << "Else:\n";
       push();
-      printExpr(*E.ElseBranch);
+      printBlockExpr(*E.ElseBranch);
       pop();
     }
     pop();
