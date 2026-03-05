@@ -101,7 +101,7 @@ static TokenKind classifyIdent(llvm::StringRef Keyword) {
 
   case 3:
     KW("mut", TokenKind::Mut)
-    KW("fun", TokenKind::Fun)
+    KW("def", TokenKind::Def)
     KW("Int", TokenKind::Int)
     KW("not", TokenKind::Not)
     KW("and", TokenKind::And)

@@ -50,7 +50,7 @@ enum class TokenKind : std::uint8_t {
   True,
   False,
   Bool,
-  Fun,
+  Def,
   Return,
   End,
   If,

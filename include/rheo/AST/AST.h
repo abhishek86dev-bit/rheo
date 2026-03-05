@@ -188,6 +188,7 @@ struct Type {
 struct Param {
   llvm::StringRef Name;
   Type *Ty;
+  Span Location;
 };
 
 struct FunctionDecl {

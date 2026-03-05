@@ -5,6 +5,7 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
+#include <optional>
 #include <string>
 #include <variant>
 
@@ -84,7 +85,7 @@ static std::string describeToken(const Token &Tok) {
   case TK::Bool:
     return std::format("type '{}'", Tok.Value.str());
 
-  case TK::Fun:
+  case TK::Def:
   case TK::End:
   case TK::Return:
   case TK::If:
@@ -855,6 +856,145 @@ BlockExpr *Parser::parseBlock(llvm::ArrayRef<TokenKind> Terminators) {
 
   return Context.create<BlockExpr>(Context.copyArray(llvm::ArrayRef(Stmts)),
                                    Tail);
+}
+
+void Parser::errorExpectedParamName() {
+  Token Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected parameter name");
+  Diag.setCode("E1020");
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of identifier", describeToken(Tok))));
+  Diags.emit(Diag);
+  eatNextToken();
+}
+
+std::optional<Param> Parser::parseParam() {
+  if (NextToken.Kind != TokenKind::Identifier) {
+    errorExpectedParamName();
+    return std::nullopt;
+  }
+  auto Name = Context.save(NextToken.Value);
+  auto Loc = NextToken.Span;
+  eatNextToken();
+  Type *Ty = nullptr;
+  if (NextToken.Kind == TokenKind::Colon) {
+    eatNextToken();
+    Ty = parseType();
+    if (!Ty)
+      return std::nullopt;
+    Loc = Loc.merge(Ty->Location);
+  }
+  return Param{Name, Ty, Loc};
+}
+
+void Parser::errorExpectedCommaAfterParam(Span ParamSpan) {
+  Token Tok = NextToken;
+
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected ',' after parameter");
+  Diag.setCode("E1021");
+
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of ','", describeToken(Tok))));
+
+  Diag.addLabel(Label::secondary(ParamSpan, File, "parameter declared here"));
+
+  Diags.emit(Diag);
+}
+
+llvm::ArrayRef<Param> Parser::parseParamList() {
+  eatNextToken();
+  llvm::SmallVector<Param, 8> Params;
+  auto SyncToParamBoundary = [&]() {
+    while (NextToken.Kind != TokenKind::Eof &&
+           NextToken.Kind != TokenKind::Comma &&
+           NextToken.Kind != TokenKind::RParen)
+      eatNextToken();
+    if (NextToken.Kind == TokenKind::Comma)
+      eatNextToken();
+  };
+  while (NextToken.Kind != TokenKind::Eof &&
+         NextToken.Kind != TokenKind::RParen) {
+    auto Param = parseParam();
+    if (!Param.has_value()) {
+      SyncToParamBoundary();
+      continue;
+    }
+    Params.push_back(*Param);
+    if (NextToken.Kind == TokenKind::Comma) {
+      eatNextToken();
+      continue;
+    }
+    if (NextToken.Kind != TokenKind::RParen) {
+      errorExpectedCommaAfterParam(Param->Location);
+      SyncToParamBoundary();
+    }
+  }
+  if (NextToken.Kind == TokenKind::RParen)
+    eatNextToken();
+  return Context.copyArray(llvm::ArrayRef(Params));
+}
+
+void Parser::errorExpectedFunctionName(Span FnSpan) {
+  Token Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected function name");
+  Diag.setCode("E1022");
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of identifier", describeToken(Tok))));
+  Diag.addLabel(Label::secondary(FnSpan, File, "'fn' declared here"));
+  Diags.emit(Diag);
+}
+
+void Parser::errorExpectedFunctionBody(Span FnSpan) {
+  Token Tok = NextToken;
+  Diagnostic Diag(Severity::Error);
+  Diag.setMessage("expected newline after function signature");
+  Diag.setCode("E1023");
+  Diag.addLabel(Label::primary(
+      Tok.Span, File,
+      std::format("found {} instead of newline", describeToken(Tok))));
+
+  Diag.addLabel(Label::secondary(FnSpan, File, "'def' starts here"));
+  Diag.setHelp("put the function signature on one line, "
+               "then start the body on the next line");
+  Diags.emit(Diag);
+}
+
+FunctionDecl *Parser::parseFunc() {
+  auto FnSanp = NextToken.Span;
+  eatNextToken();
+  if (NextToken.Kind != TokenKind::Identifier) {
+    errorExpectedFunctionName(FnSanp);
+    eatNextToken();
+    return nullptr;
+  }
+  auto Name = Context.save(NextToken.Value);
+  auto Loc = NextToken.Span;
+  eatNextToken();
+  llvm::ArrayRef<Param> Params = {};
+  if (NextToken.Kind == TokenKind::LParen)
+    Params = parseParamList();
+  Type *ReturnType = nullptr;
+  if (NextToken.Kind == TokenKind::Arrow) {
+    eatNextToken();
+    ReturnType = parseType();
+    if (!ReturnType)
+      return nullptr;
+  }
+  if (NextToken.Kind != TokenKind::NewLine &&
+      NextToken.Kind != TokenKind::Semicolon) {
+    errorExpectedFunctionBody(FnSanp);
+    eatNextToken();
+    return nullptr;
+  }
+  eatNextToken();
+  BlockExpr *Body = parseBlock({TokenKind::End});
+  return Context.create<FunctionDecl>(Name, Params, ReturnType, Body, Loc);
 }
 
 } // namespace rheo

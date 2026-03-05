@@ -115,8 +115,11 @@ public:
     push();
     for (auto &P : F.Params) {
       indent();
-      OS << "Param(" << P.Name << ": ";
-      printType(*P.Ty);
+      OS << "Param(" << P.Name;
+      if (P.Ty) {
+        OS << ": ";
+        printType(*P.Ty);
+      }
       OS << ")\n";
     }
     if (F.ReturnType) {

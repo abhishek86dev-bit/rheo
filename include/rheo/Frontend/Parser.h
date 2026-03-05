@@ -7,6 +7,7 @@
 #include "rheo/Frontend/Lexer.h"
 #include "rheo/Frontend/Token.h"
 #include <llvm/ADT/ArrayRef.h>
+#include <optional>
 
 namespace rheo {
 
@@ -34,15 +35,17 @@ class Parser {
   Stmt *parseReturnStmt();
   Stmt *parseExprStmt();
   Stmt *parseExprOrAssignStmt();
-
   Stmt *parseStmt();
+
+  std::optional<Param> parseParam();
+  llvm::ArrayRef<Param> parseParamList();
+  BlockExpr *parseBlock(llvm::ArrayRef<TokenKind> Terminator);
 
   Type *errorUnexpectedType();
   Type *errorExpectedRParenInType(Span OpenParenSpan);
   Stmt *errorUnexpectedColonEqualAfterType(Span TypeSpan);
   Stmt *errorExpectedStmtTerminator(Span StmtSpan);
   Stmt *errorExpectedStmt();
-
   Stmt *errorInvalidMutInitializer();
   Stmt *errorInvalidAssignmentTarget(Expr *LHS);
   Stmt *errorInvalidDeclTarget(Expr *LHS);
@@ -52,13 +55,17 @@ class Parser {
   Expr *errorExpectedCommaOrRParenInCall(Span OpenParenSpan);
   Expr *errorExpectedThenBlock(Span IfSpan);
   Expr *errorExpectedWhileBody(Span WhileSpan);
+  void errorExpectedParamName();
+  void errorExpectedCommaAfterParam(Span ParamSpan);
+  void errorExpectedFunctionName(Span FnSpan);
+  void errorExpectedFunctionBody(Span FnSpan);
 
 public:
   Parser(ASTContext &Context, Lexer &Lex, DiagnosticEngine &Diags, FileId File)
       : Context(Context), Lex(Lex), NextToken(Lex.nextToken()), Diags(Diags),
         File(File) {}
 
-  BlockExpr *parseBlock(llvm::ArrayRef<TokenKind> Terminator);
+  FunctionDecl *parseFunc();
 };
 
 }; // namespace rheo
