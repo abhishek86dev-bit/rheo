@@ -102,8 +102,8 @@ public:
   void print(const Module &M) {
     OS << "Module(" << M.Name << ")\n";
     push();
-    for (auto *F : M.Functions)
-      print(*F);
+    for (auto *S : M.Stmts)
+      printStmt(*S);
     pop();
   }
 
@@ -367,6 +367,7 @@ public:
     pop();
     pop();
   }
+  void printStmtKind(FunctionDecl *F) { print(*F); }
 };
 
 inline void printAST(const Module &M, llvm::raw_ostream &OS = llvm::outs()) {

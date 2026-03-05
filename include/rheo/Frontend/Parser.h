@@ -7,6 +7,7 @@
 #include "rheo/Frontend/Lexer.h"
 #include "rheo/Frontend/Token.h"
 #include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/StringRef.h>
 #include <optional>
 
 namespace rheo {
@@ -40,6 +41,7 @@ class Parser {
   std::optional<Param> parseParam();
   llvm::ArrayRef<Param> parseParamList();
   BlockExpr *parseBlock(llvm::ArrayRef<TokenKind> Terminator);
+  FunctionDecl *parseFunc();
 
   Type *errorUnexpectedType();
   Type *errorExpectedRParenInType(Span OpenParenSpan);
@@ -65,7 +67,7 @@ public:
       : Context(Context), Lex(Lex), NextToken(Lex.nextToken()), Diags(Diags),
         File(File) {}
 
-  FunctionDecl *parseFunc();
+  Module parseModule(llvm::StringRef Name);
 };
 
 }; // namespace rheo

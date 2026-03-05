@@ -5,6 +5,7 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
 #include <optional>
 #include <string>
 #include <variant>
@@ -174,7 +175,8 @@ Stmt *Parser::errorExpectedStmt() {
   Diag.setMessage(std::format("expected statement, found {}", Found));
   Diag.addLabel(
       Label::primary(Tok.Span, File, std::format("unexpected {}", Found)));
-  Diag.setHelp("expected declaration, assignment, expression, or control flow");
+  Diag.setHelp("expected function declaration, variable declaration, "
+               "assignment, expression, or control flow");
   Diags.emit(Diag);
   return nullptr;
 }
@@ -780,50 +782,6 @@ Stmt *Parser::parseExprOrAssignStmt() {
   return Context.create<Stmt>(LHS->Location, ExprStmt{LHS});
 }
 
-Stmt *Parser::parseStmt() {
-  auto Start = NextToken.Span;
-  Stmt *S = nullptr;
-
-  switch (NextToken.Kind) {
-  case TokenKind::Return:
-    S = parseReturnStmt();
-    break;
-  case TokenKind::True:
-  case TokenKind::False:
-  case TokenKind::IntLiteral:
-  case TokenKind::FloatLiteral:
-  case TokenKind::Minus:
-  case TokenKind::Plus:
-  case TokenKind::Not:
-  case TokenKind::LParen:
-  case TokenKind::If:
-  case TokenKind::While:
-  case TokenKind::Continue:
-  case TokenKind::Break:
-    S = parseExprStmt();
-    break;
-  case TokenKind::Identifier:
-  case TokenKind::Mut:
-    S = parseExprOrAssignStmt();
-    break;
-  default:
-    return errorExpectedStmt();
-  }
-
-  if (!S)
-    return nullptr;
-
-  if (NextToken.Kind == TokenKind::NewLine ||
-      NextToken.Kind == TokenKind::Semicolon ||
-      NextToken.Kind == TokenKind::Eof) {
-    if (NextToken.Kind != TokenKind::Eof)
-      eatNextToken();
-    return S;
-  }
-
-  return errorExpectedStmtTerminator(Start);
-}
-
 BlockExpr *Parser::parseBlock(llvm::ArrayRef<TokenKind> Terminators) {
   llvm::SmallVector<Stmt *, 8> Stmts;
 
@@ -994,7 +952,78 @@ FunctionDecl *Parser::parseFunc() {
   }
   eatNextToken();
   BlockExpr *Body = parseBlock({TokenKind::End});
+  eatNextToken();
   return Context.create<FunctionDecl>(Name, Params, ReturnType, Body, Loc);
+}
+
+Stmt *Parser::parseStmt() {
+  auto Start = NextToken.Span;
+  Stmt *S = nullptr;
+
+  switch (NextToken.Kind) {
+  case TokenKind::Return:
+    S = parseReturnStmt();
+    break;
+  case TokenKind::True:
+  case TokenKind::False:
+  case TokenKind::IntLiteral:
+  case TokenKind::FloatLiteral:
+  case TokenKind::Minus:
+  case TokenKind::Plus:
+  case TokenKind::Not:
+  case TokenKind::LParen:
+  case TokenKind::If:
+  case TokenKind::While:
+  case TokenKind::Continue:
+  case TokenKind::Break:
+    S = parseExprStmt();
+    break;
+  case TokenKind::Identifier:
+  case TokenKind::Mut:
+    S = parseExprOrAssignStmt();
+    break;
+  case TokenKind::Def: {
+    auto Loc = NextToken.Span;
+    FunctionDecl *F = parseFunc();
+    if (!F)
+      return nullptr;
+    return Context.create<Stmt>(Loc, F);
+  }
+  default:
+    return errorExpectedStmt();
+  }
+
+  if (!S)
+    return nullptr;
+
+  if (NextToken.Kind == TokenKind::NewLine ||
+      NextToken.Kind == TokenKind::Semicolon ||
+      NextToken.Kind == TokenKind::Eof) {
+    if (NextToken.Kind != TokenKind::Eof)
+      eatNextToken();
+    return S;
+  }
+
+  return errorExpectedStmtTerminator(Start);
+}
+
+Module Parser::parseModule(llvm::StringRef Name) {
+  llvm::SmallVector<Stmt *, 8> Stmts;
+  while (NextToken.Kind != TokenKind::Eof) {
+    skipNewLines();
+    if (NextToken.Kind == TokenKind::Eof)
+      break;
+    Stmt *S = parseStmt();
+    if (!S) {
+      while (NextToken.Kind != TokenKind::NewLine &&
+             NextToken.Kind != TokenKind::Semicolon &&
+             NextToken.Kind != TokenKind::Eof)
+        eatNextToken();
+      continue;
+    }
+    Stmts.push_back(S);
+  }
+  return Module{Context.save(Name), Context.copyArray(llvm::ArrayRef(Stmts))};
 }
 
 } // namespace rheo

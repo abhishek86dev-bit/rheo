@@ -143,14 +143,6 @@ struct AssignStmt {
   Expr *Value;
 };
 
-using StmtKind = std::variant<ExprStmt, ReturnStmt, VarDecl, AssignStmt>;
-
-struct Stmt {
-  Span Location;
-  StmtKind Kind;
-  Stmt(Span Location, StmtKind Kind) : Location(Location), Kind(Kind) {}
-};
-
 enum class BuiltinKind : std::uint8_t {
   Int,
   I8,
@@ -194,8 +186,8 @@ struct Param {
 struct FunctionDecl {
   llvm::StringRef Name;
   llvm::ArrayRef<Param> Params;
-  Type *ReturnType; // nullable = void
-  BlockExpr *Body;  // nullable for extern
+  Type *ReturnType;
+  BlockExpr *Body;
   Span Location;
   FunctionDecl(llvm::StringRef Name, llvm::ArrayRef<Param> Params,
                Type *ReturnType, BlockExpr *Body, Span Location)
@@ -203,9 +195,18 @@ struct FunctionDecl {
         Location(Location) {}
 };
 
+using StmtKind =
+    std::variant<ExprStmt, ReturnStmt, VarDecl, AssignStmt, FunctionDecl *>;
+
+struct Stmt {
+  Span Location;
+  StmtKind Kind;
+  Stmt(Span Location, StmtKind Kind) : Location(Location), Kind(Kind) {}
+};
+
 struct Module {
   llvm::StringRef Name;
-  llvm::ArrayRef<FunctionDecl *> Functions;
+  llvm::ArrayRef<Stmt *> Stmts;
 };
 
 } // namespace rheo

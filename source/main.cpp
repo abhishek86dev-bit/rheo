@@ -7,8 +7,10 @@
 #include <llvm/ADT/ArrayRef.h>
 
 int main() {
-  const auto *Src = R"(def main(args)
-      x := 10
+  const auto *Src = R"(
+    x := 10
+    x = 10
+    def main(args)
     end
   )";
   rheo::SourceManager Manager;
@@ -17,7 +19,7 @@ int main() {
   rheo::Lexer Lexer(FileId, Src, Engine);
   rheo::ASTContext Ctx;
   rheo::Parser Parser(Ctx, Lexer, Engine, FileId);
-  auto *E = Parser.parseFunc();
+  auto E = Parser.parseModule("main");
   rheo::ASTPrinter Printer;
   if (Engine.hasError()) {
     auto &Out = llvm::outs();
@@ -26,7 +28,6 @@ int main() {
     }
     return 1;
   }
-  if (E != nullptr)
-    Printer.print(*E);
+  Printer.print(E);
   return 0;
 }
