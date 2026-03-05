@@ -10,6 +10,7 @@ int main() {
   const auto *Src = R"(
     x := 10
     x = 10
+    def hello 10 end
     def main(args)
     end
   )";

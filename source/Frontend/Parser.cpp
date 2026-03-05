@@ -924,10 +924,10 @@ void Parser::errorExpectedFunctionBody(Span FnSpan) {
 }
 
 FunctionDecl *Parser::parseFunc() {
-  auto FnSanp = NextToken.Span;
+  auto FnSpan = NextToken.Span;
   eatNextToken();
   if (NextToken.Kind != TokenKind::Identifier) {
-    errorExpectedFunctionName(FnSanp);
+    errorExpectedFunctionName(FnSpan);
     eatNextToken();
     return nullptr;
   }
@@ -944,15 +944,31 @@ FunctionDecl *Parser::parseFunc() {
     if (!ReturnType)
       return nullptr;
   }
-  if (NextToken.Kind != TokenKind::NewLine &&
-      NextToken.Kind != TokenKind::Semicolon) {
-    errorExpectedFunctionBody(FnSanp);
+  BlockExpr *Body = nullptr;
+  if (NextToken.Kind == TokenKind::NewLine ||
+      NextToken.Kind == TokenKind::Semicolon) {
     eatNextToken();
-    return nullptr;
+    Body = parseBlock({TokenKind::End});
+    eatNextToken();
+  } else {
+    BlockExpr *Body = nullptr;
+    auto EmptyStmts = Context.copyArray(llvm::ArrayRef<Stmt *>({}));
+    if (NextToken.Kind == TokenKind::End) {
+      Body = Context.create<BlockExpr>(EmptyStmts, /*Tail=*/nullptr);
+      eatNextToken();
+    } else {
+      Expr *E = parseExpr();
+      if (!E)
+        return nullptr;
+      Body = Context.create<BlockExpr>(EmptyStmts, E);
+      if (NextToken.Kind == TokenKind::End)
+        eatNextToken();
+      else {
+        errorExpectedFunctionBody(FnSpan);
+        return nullptr;
+      }
+    }
   }
-  eatNextToken();
-  BlockExpr *Body = parseBlock({TokenKind::End});
-  eatNextToken();
   return Context.create<FunctionDecl>(Name, Params, ReturnType, Body, Loc);
 }
 
