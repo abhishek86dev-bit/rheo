@@ -55,7 +55,7 @@ enum class SymbolKind {
 struct Symbol {
   llvm::StringRef Name;
   Span Location;
-  bool IsMutable;
+  bool IsMutable; // Only for Variable
   SymbolKind Kind;
 
   static Symbol function(llvm::StringRef Name, Span Location) {
