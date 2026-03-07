@@ -3,20 +3,41 @@
 
 #include "rheo/AST/AST.h"
 #include "rheo/Sema/Symbol.h"
+
 #include <llvm/ADT/ArrayRef.h>
+#include <llvm/ADT/StringRef.h>
 #include <variant>
 
 namespace rheo {
+
+struct ResolvedType;
+
+struct ResolvedBuiltinType {
+  BuiltinKind Kind;
+};
+
+struct ResolvedNamedType {
+  SymbolId Id;
+};
+
+struct ResolvedFunctionType {
+  llvm::ArrayRef<ResolvedType *> Params;
+  ResolvedType *Return;
+};
+
+using ResolvedTypeKind =
+    std::variant<ResolvedBuiltinType, ResolvedNamedType, ResolvedFunctionType>;
+
+struct ResolvedType {
+  ResolvedTypeKind Kind;
+
+  ResolvedType(ResolvedTypeKind Kind) : Kind(Kind) {}
+};
 
 struct ResolvedExpr;
 struct ResolvedStmt;
 struct ResolvedBlockExpr;
 struct ResolvedFunctionDecl;
-struct ResolvedModule;
-
-//
-// LITERALS
-//
 
 struct ResolvedIntLiteral {
   std::uint64_t Value;
@@ -86,10 +107,11 @@ using ResolvedExprKind =
 
 struct ResolvedExpr {
   Span Location;
+  ResolvedType *Ty;
   ResolvedExprKind Kind;
 
-  ResolvedExpr(Span Location, ResolvedExprKind Kind)
-      : Location(Location), Kind(Kind) {}
+  ResolvedExpr(Span Location, ResolvedType *Ty, ResolvedExprKind Kind)
+      : Location(Location), Ty(Ty), Kind(Kind) {}
 };
 
 struct ResolvedExprStmt {
@@ -102,7 +124,7 @@ struct ResolvedReturnStmt {
 
 struct ResolvedVarDecl {
   SymbolId Id;
-  Type *Ty;           // nullable if inferred
+  ResolvedType *Ty;   // nullable if inferred
   ResolvedExpr *Init; // nullable
   bool IsMut;
 };
@@ -114,14 +136,14 @@ struct ResolvedAssignStmt {
 
 struct ResolvedParam {
   SymbolId Id;
-  Type *Ty;
+  ResolvedType *Ty;
   Span Location;
 };
 
 struct ResolvedFunctionDecl {
   SymbolId Id;
   llvm::ArrayRef<ResolvedParam> Params;
-  Type *ReturnType;
+  ResolvedType *ReturnType;
   ResolvedBlockExpr *Body;
   Span Location;
 };
