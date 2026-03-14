@@ -36,6 +36,7 @@ add_library(
     source/Diagnostics/Diagnostics.cpp
     source/Frontend/Lexer.cpp
     source/Frontend/Parser.cpp
+    source/Sema/NameResolver.cpp
 )
 
 target_include_directories(

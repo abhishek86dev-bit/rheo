@@ -509,10 +509,12 @@ Expr *Parser::parseCallExpr() {
         }
       }
 
-      for (Expr *Arg : Args) {
-        Span S = ExprNode->Location.merge(Arg->Location);
-        ExprNode = Context.create<Expr>(S, CallExpr{ExprNode, Arg});
-      }
+      Span S = ExprNode->Location;
+      if (!Args.empty())
+        S = S.merge(Args.back()->Location);
+
+      ExprNode = Context.create<Expr>(
+          S, CallExpr{ExprNode, Context.copyArray(llvm::ArrayRef(Args))});
       continue;
     }
 
@@ -521,7 +523,9 @@ Expr *Parser::parseCallExpr() {
       if (!Arg)
         break;
       Span S = ExprNode->Location.merge(Arg->Location);
-      ExprNode = Context.create<Expr>(S, CallExpr{ExprNode, Arg});
+      llvm::SmallVector<Expr *, 1> Args = {Arg};
+      ExprNode = Context.create<Expr>(
+          S, CallExpr{ExprNode, Context.copyArray(llvm::ArrayRef(Args))});
       continue;
     }
 
@@ -923,7 +927,7 @@ void Parser::errorExpectedFunctionBody(Span FnSpan) {
   Diags.emit(Diag);
 }
 
-FunctionDecl *Parser::parseFunc() {
+Stmt *Parser::parseFunc() {
   auto FnSpan = NextToken.Span;
   eatNextToken();
   if (NextToken.Kind != TokenKind::Identifier) {
@@ -969,7 +973,8 @@ FunctionDecl *Parser::parseFunc() {
       }
     }
   }
-  return Context.create<FunctionDecl>(Name, Params, ReturnType, Body, Loc);
+  auto *Decl = Context.create<FunctionDecl>(Name, Params, ReturnType, Body);
+  return Context.create<Stmt>(Loc, Decl);
 }
 
 Stmt *Parser::parseStmt() {
@@ -1000,10 +1005,8 @@ Stmt *Parser::parseStmt() {
     break;
   case TokenKind::Def: {
     auto Loc = NextToken.Span;
-    FunctionDecl *F = parseFunc();
-    if (!F)
-      return nullptr;
-    return Context.create<Stmt>(Loc, F);
+    S = parseFunc();
+    break;
   }
   default:
     return errorExpectedStmt();

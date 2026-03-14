@@ -37,11 +37,11 @@ class Parser {
   Stmt *parseExprStmt();
   Stmt *parseExprOrAssignStmt();
   Stmt *parseStmt();
+  Stmt *parseFunc();
 
   std::optional<Param> parseParam();
   llvm::ArrayRef<Param> parseParamList();
   BlockExpr *parseBlock(llvm::ArrayRef<TokenKind> Terminator);
-  FunctionDecl *parseFunc();
 
   Type *errorUnexpectedType();
   Type *errorExpectedRParenInType(Span OpenParenSpan);
