@@ -9,6 +9,8 @@
 
 int main() {
   const auto *Src = R"(
+    x := 10
+    x := 13
     def sum(x, y) x + y end
     sum(10, 20)
   )";

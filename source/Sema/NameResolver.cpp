@@ -7,11 +7,7 @@
 namespace rheo {
 
 void NameResolver::declare(llvm::StringRef Name, Symbol S) {
-  auto &CurrentScope = Scopes.back();
-  auto [It, Inserted] = CurrentScope.try_emplace(Name, S);
-  if (!Inserted) {
-    errorSymbolRedeclared(Name, S.Location, It->second.Location);
-  }
+  Scopes.back().insert_or_assign(Name, S);
 }
 
 const Symbol *NameResolver::lookup(llvm::StringRef Name) const {
@@ -26,7 +22,7 @@ const Symbol *NameResolver::lookup(llvm::StringRef Name) const {
 void NameResolver::errorSymbolRedeclared(llvm::StringRef Name, Span NewSpan,
                                          Span OldSpan) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("symbol '{}' redeclared", Name));
+  Diag.setMessage(std::format("symbol '{}' redeclared", Name.str()));
   Diag.setCode("E2001");
 
   Diag.addLabel(Label::primary(NewSpan, File, "redeclaration occurs here"));
@@ -41,7 +37,7 @@ void NameResolver::errorSymbolRedeclared(llvm::StringRef Name, Span NewSpan,
 
 void NameResolver::errorCalleeUndefined(llvm::StringRef Name, Span CallSpan) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("undefined function '{}'", Name));
+  Diag.setMessage(std::format("undefined function '{}'", Name.str()));
   Diag.setCode("E2002");
   Diag.addLabel(Label::primary(CallSpan, File, "not found in this scope"));
   Diag.setHelp("ensure the function is declared before this call");
@@ -51,7 +47,7 @@ void NameResolver::errorCalleeUndefined(llvm::StringRef Name, Span CallSpan) {
 void NameResolver::errorCalleeNotCallable(llvm::StringRef Name, Span CallSpan,
                                           Span DeclSpan) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("'{}' is not a function", Name));
+  Diag.setMessage(std::format("'{}' is not a function", Name.str()));
   Diag.setCode("E2003");
   Diag.addLabel(Label::primary(CallSpan, File, "called here"));
   Diag.addLabel(
@@ -64,7 +60,7 @@ void NameResolver::errorCalleeArityMismatch(llvm::StringRef Name, Span CallSpan,
                                             Span DeclSpan, size_t Expected,
                                             size_t Got) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("'{}' expects {} argument{}, got {}", Name,
+  Diag.setMessage(std::format("'{}' expects {} argument{}, got {}", Name.str(),
                               Expected, Expected == 1 ? "" : "s", Got));
   Diag.setCode("E2004");
   Diag.addLabel(Label::primary(
@@ -90,7 +86,7 @@ void NameResolver::errorCalleeExprNotCallable(Span CallSpan) {
 
 void NameResolver::errorUndefinedDecl(llvm::StringRef Name, Span UseSpan) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("undefined symbol '{}'", Name));
+  Diag.setMessage(std::format("undefined symbol '{}'", Name.str()));
   Diag.setCode("E2006");
   Diag.addLabel(Label::primary(UseSpan, File, "not found in this scope"));
   Diag.setHelp(std::format("ensure '{}' is declared before use", Name));
@@ -100,7 +96,7 @@ void NameResolver::errorUndefinedDecl(llvm::StringRef Name, Span UseSpan) {
 void NameResolver::errorVarRefNotAVariable(llvm::StringRef Name, Span UseSpan,
                                            Span DeclSpan) {
   Diagnostic Diag(Severity::Error);
-  Diag.setMessage(std::format("'{}' is not a variable", Name));
+  Diag.setMessage(std::format("'{}' is not a variable", Name.str()));
   Diag.setCode("E2007");
   Diag.addLabel(Label::primary(UseSpan, File, "used as a variable here"));
   Diag.addLabel(
@@ -114,28 +110,13 @@ void NameResolver::errorAssignToImmutable(llvm::StringRef Name, Span AssignSpan,
                                           Span DeclSpan) {
   Diagnostic Diag(Severity::Error);
   Diag.setMessage(
-      std::format("cannot assign to immutable variable '{}'", Name));
+      std::format("cannot assign to immutable variable '{}'", Name.str()));
   Diag.setCode("E2008");
   Diag.addLabel(Label::primary(AssignSpan, File, "assignment here"));
   Diag.addLabel(Label::secondary(DeclSpan, File, "declared without '~' here"));
   Diag.setHelp(
       std::format("declare '{}' as mutable with '~{} := ...'", Name, Name));
   Diags.emit(Diag);
-}
-
-void NameResolver::analyze(Module &M) {
-  ScopeGuard Global(&Scopes);
-  for (auto *S : M.Stmts) {
-    if (!std::holds_alternative<FunctionDecl *>(S->Kind))
-      continue;
-    auto *Fn = std::get<FunctionDecl *>(S->Kind);
-    if (auto *Existing = lookup(Fn->Name))
-      errorSymbolRedeclared(Fn->Name, S->Location, Existing->Location);
-    else
-      declare(Fn->Name, Symbol(S->Location, Fn));
-  }
-  for (auto *S : M.Stmts)
-    analyzeStmt(*S);
 }
 
 void NameResolver::analyzeBlock(BlockExpr &B) {
@@ -266,6 +247,21 @@ void NameResolver::analyzeStmt(Stmt &S) {
                                              P.Name, P.Ty, nullptr, false})));
           }},
       S.Kind);
+}
+
+void NameResolver::analyze(Module &M) {
+  ScopeGuard Global(&Scopes);
+  for (auto *S : M.Stmts) {
+    if (!std::holds_alternative<FunctionDecl *>(S->Kind))
+      continue;
+    auto *Fn = std::get<FunctionDecl *>(S->Kind);
+    if (auto *Existing = lookup(Fn->Name))
+      errorSymbolRedeclared(Fn->Name, S->Location, Existing->Location);
+    else
+      declare(Fn->Name, Symbol(S->Location, Fn));
+  }
+  for (auto *S : M.Stmts)
+    analyzeStmt(*S);
 }
 
 } // namespace rheo
